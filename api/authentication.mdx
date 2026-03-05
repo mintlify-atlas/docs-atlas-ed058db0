@@ -1,0 +1,100 @@
+---
+title: Authentication
+description: Authentication mechanism for the Taskcore API
+---
+
+The Taskcore API provides a login endpoint to authenticate users.
+
+## Login
+
+Authenticate a user with email and password.
+
+<Note>
+  Currently, Taskcore implements basic authentication. The login endpoint returns the authenticated user object. Future versions may include session tokens or JWT authentication.
+</Note>
+
+### Endpoint
+
+```
+POST /api/auth/login
+```
+
+### Request Body
+
+<ParamField body="email" type="string" required>
+  User's email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password
+</ParamField>
+
+### Response
+
+Returns the authenticated user object.
+
+<ResponseField name="id" type="string">
+  Unique user identifier
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  User's email address
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  User's display name
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  Timestamp when user was created (RFC3339)
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  Timestamp when user was last updated (RFC3339)
+</ResponseField>
+
+### Example
+
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "alice@example.com",
+    "password": "securepassword123"
+  }'
+```
+
+### Response
+
+```json
+{
+  "status": 200,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "alice@example.com",
+    "name": "Alice Smith",
+    "created_at": "2026-03-01T10:00:00Z",
+    "updated_at": "2026-03-01T10:00:00Z"
+  }
+}
+```
+
+## Error Responses
+
+### Invalid Credentials
+
+```json
+{
+  "status": 401,
+  "error": "invalid credentials"
+}
+```
+
+### Invalid JSON
+
+```json
+{
+  "status": 400,
+  "error": "invalid JSON"
+}
+```

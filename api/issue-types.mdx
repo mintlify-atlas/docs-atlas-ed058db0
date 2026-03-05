@@ -1,0 +1,202 @@
+---
+title: Issue Types
+description: Issue type management endpoints
+---
+
+Issue types define the kinds of work items that can be created in a project (e.g., Epic, Story, Task, Bug).
+
+## Create Issue Type
+
+Create a new issue type in a project.
+
+```
+POST /api/projects/{projectID}/issue-types
+```
+
+### Path Parameters
+
+<ParamField path="projectID" type="string" required>
+  Project identifier
+</ParamField>
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Issue type name (e.g., "Epic", "Story", "Task", "Bug")
+</ParamField>
+
+<ParamField body="icon" type="string">
+  Icon identifier for UI display (optional)
+</ParamField>
+
+<ParamField body="level" type="integer" required>
+  Hierarchy level (0 or higher). Higher levels can contain lower levels as children.
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Unique issue type identifier (UUID)
+</ResponseField>
+
+<ResponseField name="project_id" type="string">
+  Parent project identifier
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Issue type name
+</ResponseField>
+
+<ResponseField name="icon" type="string">
+  Icon identifier
+</ResponseField>
+
+<ResponseField name="level" type="integer">
+  Hierarchy level
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  Creation timestamp
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  Last update timestamp
+</ResponseField>
+
+### Example
+
+```bash
+curl -X POST http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000/issue-types \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Epic",
+    "icon": "epic",
+    "level": 2
+  }'
+```
+
+### Response
+
+```json
+{
+  "status": 201,
+  "data": {
+    "id": "990e8400-e29b-41d4-a716-446655440000",
+    "project_id": "660e8400-e29b-41d4-a716-446655440000",
+    "name": "Epic",
+    "icon": "epic",
+    "level": 2,
+    "created_at": "2026-03-05T14:30:00Z",
+    "updated_at": "2026-03-05T14:30:00Z"
+  }
+}
+```
+
+### Error Responses
+
+<Expandable title="Duplicate Issue Type (409)">
+```json
+{
+  "status": 409,
+  "error": "issue type name already exists in project"
+}
+```
+</Expandable>
+
+<Expandable title="Validation Error (422)">
+```json
+{
+  "status": 422,
+  "error": "level must be >= 0"
+}
+```
+</Expandable>
+
+## List Issue Types
+
+List all issue types in a project.
+
+```
+GET /api/projects/{projectID}/issue-types
+```
+
+### Path Parameters
+
+<ParamField path="projectID" type="string" required>
+  Project identifier
+</ParamField>
+
+### Example
+
+```bash
+curl http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000/issue-types
+```
+
+### Response
+
+```json
+{
+  "status": 200,
+  "data": [
+    {
+      "id": "990e8400-e29b-41d4-a716-446655440000",
+      "project_id": "660e8400-e29b-41d4-a716-446655440000",
+      "name": "Epic",
+      "icon": "epic",
+      "level": 2,
+      "created_at": "2026-03-05T14:30:00Z",
+      "updated_at": "2026-03-05T14:30:00Z"
+    },
+    {
+      "id": "aa0e8400-e29b-41d4-a716-446655440000",
+      "project_id": "660e8400-e29b-41d4-a716-446655440000",
+      "name": "Story",
+      "icon": "story",
+      "level": 1,
+      "created_at": "2026-03-05T14:30:00Z",
+      "updated_at": "2026-03-05T14:30:00Z"
+    },
+    {
+      "id": "bb0e8400-e29b-41d4-a716-446655440000",
+      "project_id": "660e8400-e29b-41d4-a716-446655440000",
+      "name": "Task",
+      "icon": "task",
+      "level": 0,
+      "created_at": "2026-03-05T14:30:00Z",
+      "updated_at": "2026-03-05T14:30:00Z"
+    }
+  ]
+}
+```
+
+## Archive Issue Type
+
+Archive (soft delete) an issue type.
+
+```
+DELETE /api/projects/{projectID}/issue-types/{issueTypeID}
+```
+
+### Path Parameters
+
+<ParamField path="projectID" type="string" required>
+  Project identifier
+</ParamField>
+
+<ParamField path="issueTypeID" type="string" required>
+  Issue type identifier
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Example
+
+```bash
+curl -X DELETE http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000/issue-types/990e8400-e29b-41d4-a716-446655440000
+```
+
+<Note>
+  The `level` field enables parent-child relationships between issues. For example, an Epic (level 2) can contain Stories (level 1), which can contain Tasks (level 0).
+</Note>

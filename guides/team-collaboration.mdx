@@ -1,0 +1,471 @@
+---
+title: Team Collaboration
+description: Add team members, assign roles, manage permissions, and work together effectively
+icon: users
+---
+
+Taskcore is designed for team collaboration. Learn how to invite members, manage roles, and coordinate work across your organization.
+
+## Understanding Team Structure
+
+Taskcore has two levels of team membership:
+
+### Workspace Members
+
+- Have access to the entire workspace
+- Can see all projects (unless specifically restricted)
+- Roles: Owner, Admin, Member
+
+### Project Members
+
+- Have access to specific projects
+- Assigned on a per-project basis
+- Roles: Admin, Member, Viewer
+
+<Note>
+To work on a project, users must be both workspace members AND project members.
+</Note>
+
+## Adding Workspace Members
+
+<Steps>
+  <Step title="Access Workspace Settings">
+    Click the workspace name in the top left, then select **Workspace Settings**.
+  </Step>
+
+  <Step title="Navigate to Members">
+    Go to the **Members** tab to see current workspace members.
+  </Step>
+
+  <Step title="Invite New Members">
+    Click **Invite Members** and enter:
+    
+    - **Email addresses**: One or more emails (comma-separated)
+    - **Role**: Owner, Admin, or Member
+    - **Message**: Optional welcome note
+    
+    Click **Send Invitations**.
+  </Step>
+
+  <Step title="Members Accept Invites">
+    New members receive an email invitation with a link to join. They'll create an account (if needed) and gain access to the workspace.
+  </Step>
+</Steps>
+
+### Workspace Roles
+
+<Tabs>
+  <Tab title="Owner">
+    **Full Control** - Can do everything
+    
+    **Permissions**:
+    - All Admin permissions
+    - Delete the workspace
+    - Transfer ownership
+    - Manage billing and subscriptions
+    - Remove other owners
+    
+    **Limit**: Multiple owners allowed
+  </Tab>
+
+  <Tab title="Admin">
+    **Management Access** - Can manage members and settings
+    
+    **Permissions**:
+    - All Member permissions
+    - Invite and remove members
+    - Change workspace settings
+    - Create and delete projects
+    - Manage integrations
+    
+    **Best For**: Team leads, managers
+  </Tab>
+
+  <Tab title="Member">
+    **Standard Access** - Can work on projects
+    
+    **Permissions**:
+    - View all projects
+    - Create and edit issues
+    - Comment and collaborate
+    - Create personal filters
+    
+    **Best For**: Individual contributors
+    
+    **Cannot**:
+    - Invite members
+    - Delete projects
+    - Change workspace settings
+  </Tab>
+</Tabs>
+
+## Adding Project Members
+
+Once someone is a workspace member, add them to specific projects:
+
+<Steps>
+  <Step title="Open Project Settings">
+    Navigate to your project and click **Project Settings** in the sidebar.
+  </Step>
+
+  <Step title="Go to Members Tab">
+    Select the **Members** section to see who has access.
+  </Step>
+
+  <Step title="Add Members">
+    Click **Add Members**, then:
+    
+    - Select one or more workspace members
+    - Choose their project role (Admin, Member, or Viewer)
+    - Click **Add**
+    
+    They immediately gain access to the project.
+  </Step>
+</Steps>
+
+### Project Roles
+
+<Tabs>
+  <Tab title="Admin">
+    **Full Project Control**
+    
+    **Permissions**:
+    - All Member permissions
+    - Add/remove project members
+    - Change project settings
+    - Manage boards and workflows
+    - Configure issue types
+    - Archive the project
+    
+    **Best For**: Project leads, technical leads
+  </Tab>
+
+  <Tab title="Member">
+    **Standard Project Access**
+    
+    **Permissions**:
+    - Create, edit, and assign issues
+    - Move issues between statuses
+    - Comment and mention others
+    - View all project data
+    - Create personal boards
+    
+    **Best For**: Team members doing the work
+    
+    **Cannot**:
+    - Change project settings
+    - Add/remove members
+    - Delete boards
+  </Tab>
+
+  <Tab title="Viewer">
+    **Read-Only Access**
+    
+    **Permissions**:
+    - View issues and boards
+    - Add comments
+    - Watch issues
+    - View reports
+    
+    **Best For**: Stakeholders, executives, external reviewers
+    
+    **Cannot**:
+    - Create or edit issues
+    - Move issues
+    - Change any settings
+  </Tab>
+</Tabs>
+
+## Managing Member Roles
+
+### Changing Workspace Roles
+
+1. Go to **Workspace Settings** > **Members**
+2. Click the **•••** menu next to a member
+3. Select **Change Role**
+4. Choose the new role
+5. Click **Save**
+
+### Changing Project Roles
+
+1. Go to **Project Settings** > **Members**
+2. Click the role dropdown next to a member's name
+3. Select the new role
+4. Changes apply immediately
+
+### Removing Members
+
+**From Workspace**:
+1. Go to **Workspace Settings** > **Members**
+2. Click **•••** next to the member
+3. Select **Remove from Workspace**
+4. Confirm
+
+<Note>
+Removing someone from the workspace removes them from ALL projects automatically.
+</Note>
+
+**From Project**:
+1. Go to **Project Settings** > **Members**
+2. Click **•••** next to the member
+3. Select **Remove from Project**
+4. Confirm
+
+They lose access to the project but remain in the workspace.
+
+## Assigning Work
+
+### Quick Assignment
+
+Assign issues directly from the board:
+
+1. Click an issue card
+2. Click the assignee field (shows avatar or "Unassigned")
+3. Select a team member
+4. The issue is assigned immediately
+
+<Tip>
+**Self-Assignment**: Click "Assign to Me" to quickly take ownership of unassigned work.
+</Tip>
+
+### Bulk Assignment
+
+Assign multiple issues at once:
+
+1. Select issues by checking their boxes
+2. Click **Bulk Actions** > **Assign**
+3. Select a team member
+4. All selected issues are assigned
+
+### Workload Balancing
+
+View team capacity:
+
+1. Go to **Reports** > **Team Workload**
+2. See how many issues each member has
+3. Filter by status, priority, or time period
+4. Reassign work to balance the load
+
+## Mentions and Notifications
+
+### Mentioning Team Members
+
+Get someone's attention in comments:
+
+1. Type `@` in any comment box
+2. Start typing a name
+3. Select the person from the dropdown
+4. They receive a notification
+
+**Example**:
+```
+@sarah Can you review the design before I implement this?
+
+@tech-lead This is blocked by ENG-42
+```
+
+### Notification Settings
+
+Control what notifications you receive:
+
+1. Click your avatar > **Preferences**
+2. Go to **Notifications**
+3. Toggle notification types:
+   - Issues assigned to you
+   - Issues you're watching
+   - Mentions
+   - Status changes
+   - Comments on your issues
+
+### Watching Issues
+
+Get notified about specific issues:
+
+1. Open an issue
+2. Click the **Watch** button (eye icon)
+3. You'll receive all updates
+
+You automatically watch issues you:
+- Create
+- Are assigned to
+- Comment on
+
+## Collaborative Workflows
+
+### Code Review Process
+
+<Steps>
+  <Step title="Developer Creates Issue">
+    **ENG-42**: Implement user authentication
+    - Status: In Progress
+    - Assignee: Developer
+  </Step>
+
+  <Step title="Ready for Review">
+    Developer moves issue to "Code Review" status and mentions reviewer:
+    
+    > @reviewer This is ready for review. PR link: https://...
+  </Step>
+
+  <Step title="Reviewer Gets Notified">
+    Reviewer receives notification, reviews code, and:
+    - Moves to "Approved" if accepted
+    - Returns to "In Progress" with feedback if changes needed
+  </Step>
+
+  <Step title="Deploy and Close">
+    After deployment, issue moves to "Done"
+  </Step>
+</Steps>
+
+### Support Ticket Handoff
+
+<Steps>
+  <Step title="Ticket Created">
+    Support team member creates **SUP-123**:
+    - Status: New
+    - Priority: High
+    - Reporter: Support agent
+  </Step>
+
+  <Step title="Triage and Assign">
+    Support lead reviews and assigns to specialist:
+    - Assignee: Support specialist
+    - Status: Triaged
+  </Step>
+
+  <Step title="Escalation if Needed">
+    If technical issue, specialist mentions engineering:
+    
+    > @eng-team This requires a code fix. See logs attached.
+    
+    Engineering creates linked issue **ENG-45**
+  </Step>
+
+  <Step title="Resolution">
+    Both issues move to Done when customer is helped
+  </Step>
+</Steps>
+
+### Sprint Planning (Scrum Teams)
+
+<Steps>
+  <Step title="Backlog Refinement">
+    Team reviews backlog together:
+    - Product owner presents issues
+    - Team asks questions in comments
+    - Issues updated with acceptance criteria
+  </Step>
+
+  <Step title="Sprint Planning Meeting">
+    Team selects issues for sprint:
+    - Drag issues to "Sprint Backlog"
+    - Assign to team members
+    - Set sprint goal in board description
+  </Step>
+
+  <Step title="Daily Work">
+    Team members:
+    - Pull work from "To Do" to "In Progress"
+    - Move completed work to "Done"
+    - Mention teammates when help is needed
+  </Step>
+
+  <Step title="Sprint Review">
+    Review completed work:
+    - Filter board by sprint
+    - Demo completed issues
+    - Move incomplete work to next sprint
+  </Step>
+</Steps>
+
+## Team Communication Best Practices
+
+<Tip>
+**Use Issue Comments**: Keep discussions on the relevant issue so context is preserved.
+</Tip>
+
+<Tip>
+**Mention Specifically**: Use @mentions to notify the right people rather than broadcasting to everyone.
+</Tip>
+
+<Tip>
+**Update Status Regularly**: Move issues as you work on them so teammates have accurate visibility.
+</Tip>
+
+<Tip>
+**Describe Problems Clearly**: When creating issues or asking for help, include context and steps to reproduce.
+</Tip>
+
+<Tip>
+**Acknowledge Blockers**: If you're stuck, mention it early and tag someone who can help.
+</Tip>
+
+<Tip>
+**Limit Watchers**: Don't watch every issue—focus on what you need to know about.
+</Tip>
+
+## Permission Troubleshooting
+
+### "You don't have permission to view this project"
+
+**Solution**: Ask a project admin to add you as a project member.
+
+### "You can't edit this issue"
+
+**Causes**:
+- You're a Viewer (read-only)
+- Issue is archived
+- Issue is in a locked sprint
+
+**Solution**: Ask a project admin to upgrade your role to Member.
+
+### "You can't add members"
+
+**Causes**:
+- You're not a workspace Admin or Owner
+- You're not a project Admin
+
+**Solution**: Ask an admin to add members, or request an admin role.
+
+## Team Management Best Practices
+
+<Tip>
+**Start with Member Role**: Grant most team members the standard Member role and only elevate to Admin when needed.
+</Tip>
+
+<Tip>
+**Use Project-Level Permissions**: Not everyone needs access to every project. Add members to specific projects based on their work.
+</Tip>
+
+<Tip>
+**Regular Access Reviews**: Quarterly, review who has access and remove inactive members.
+</Tip>
+
+<Tip>
+**Viewer Role for Stakeholders**: Give non-contributors (executives, clients) Viewer access so they can track progress without accidentally changing things.
+</Tip>
+
+<Tip>
+**Onboarding Checklist**: Create a standard process for adding new team members to the right projects with appropriate roles.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Managing Issues" icon="list-check" href="/guides/managing-issues">
+    Create and assign work items
+  </Card>
+  
+  <Card title="Configuring Boards" icon="columns" href="/guides/configuring-boards">
+    Set up team boards and views
+  </Card>
+  
+  <Card title="Custom Workflows" icon="diagram-project" href="/guides/workflows">
+    Design status flows for your team
+  </Card>
+  
+  <Card title="Creating Projects" icon="folder-plus" href="/guides/creating-projects">
+    Set up new projects for your team
+  </Card>
+</CardGroup>

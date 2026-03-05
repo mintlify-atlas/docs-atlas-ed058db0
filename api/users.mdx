@@ -1,0 +1,178 @@
+---
+title: Users
+description: User management endpoints
+---
+
+Manage user accounts in Taskcore.
+
+## Create User
+
+Create a new user account.
+
+```
+POST /api/users
+```
+
+### Request Body
+
+<ParamField body="email" type="string" required>
+  User's email address. Must contain an @ symbol and be unique.
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  User's display name
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password
+</ParamField>
+
+### Response
+
+Returns the created user object.
+
+<ResponseField name="id" type="string">
+  Unique user identifier (UUID)
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  User's email address
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  User's display name
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  Timestamp when user was created (RFC3339)
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  Timestamp when user was last updated (RFC3339)
+</ResponseField>
+
+### Example
+
+```bash
+curl -X POST http://localhost:8080/api/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "alice@example.com",
+    "name": "Alice Smith",
+    "password": "securepassword123"
+  }'
+```
+
+### Response
+
+```json
+{
+  "status": 201,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "alice@example.com",
+    "name": "Alice Smith",
+    "created_at": "2026-03-05T14:30:00Z",
+    "updated_at": "2026-03-05T14:30:00Z"
+  }
+}
+```
+
+### Error Responses
+
+<Expandable title="Duplicate Email (409)">
+```json
+{
+  "status": 409,
+  "error": "email already exists"
+}
+```
+</Expandable>
+
+<Expandable title="Validation Error (422)">
+```json
+{
+  "status": 422,
+  "error": "name is required"
+}
+```
+
+Validation errors occur when:
+- `name` is empty
+- `email` is empty or doesn't contain @
+- `password` is empty
+</Expandable>
+
+## Get User
+
+Retrieve a user by ID.
+
+```
+GET /api/users/{userID}
+```
+
+### Path Parameters
+
+<ParamField path="userID" type="string" required>
+  The unique identifier of the user
+</ParamField>
+
+### Response
+
+Returns the user object.
+
+<ResponseField name="id" type="string">
+  Unique user identifier
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  User's email address
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  User's display name
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  Timestamp when user was created
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  Timestamp when user was last updated
+</ResponseField>
+
+<ResponseField name="archived_at" type="string" optional>
+  Timestamp when user was archived (null if active)
+</ResponseField>
+
+### Example
+
+```bash
+curl http://localhost:8080/api/users/550e8400-e29b-41d4-a716-446655440000
+```
+
+### Response
+
+```json
+{
+  "status": 200,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "alice@example.com",
+    "name": "Alice Smith",
+    "created_at": "2026-03-05T14:30:00Z",
+    "updated_at": "2026-03-05T14:30:00Z"
+  }
+}
+```
+
+### Error Responses
+
+<Expandable title="User Not Found (404)">
+```json
+{
+  "status": 404,
+  "error": "user not found"
+}
+```
+</Expandable>

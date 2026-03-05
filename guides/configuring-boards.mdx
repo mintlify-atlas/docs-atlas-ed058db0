@@ -1,0 +1,303 @@
+---
+title: Configuring Boards
+description: Set up Kanban and Scrum boards with custom columns to visualize your workflow
+icon: columns
+---
+
+Boards provide a visual way to track work progress in Taskcore. Create multiple boards within a project to view work from different perspectives.
+
+## Understanding Boards
+
+A board is a visual representation of your workflow, displaying issues as cards organized into columns.
+
+### Board Types
+
+Taskcore supports two board types:
+
+<Tabs>
+  <Tab title="Kanban Board">
+    **Best for**: Continuous flow of work
+    
+    **Features**:
+    - Visualize work in progress
+    - Limit work in progress (WIP)
+    - Optimize flow efficiency
+    - No time constraints
+    
+    **Ideal for**: Support teams, operations, ongoing development
+  </Tab>
+
+  <Tab title="Scrum Board">
+    **Best for**: Sprint-based development
+    
+    **Features**:
+    - Time-boxed iterations (sprints)
+    - Sprint planning and commitment
+    - Backlog management
+    - Velocity tracking
+    
+    **Ideal for**: Agile development teams, planned releases
+  </Tab>
+</Tabs>
+
+## Creating a New Board
+
+<Steps>
+  <Step title="Access Board Settings">
+    From your project, click the board dropdown in the top navigation and select **Create Board**.
+  </Step>
+
+  <Step title="Configure Board Details">
+    Enter the board information:
+    
+    - **Name**: A descriptive name (must be unique within the project)
+    - **Type**: Choose Kanban or Scrum
+    - **Filter Query** (optional): Automatically filter which issues appear
+    
+    <Note>
+    Board names must be unique within a project. Common names: "Main Board", "Sprint Board", "Bug Tracking", "Current Sprint"
+    </Note>
+  </Step>
+
+  <Step title="Add Columns">
+    Create columns to represent your workflow stages. By default, you'll start with:
+    
+    - To Do
+    - In Progress
+    - Done
+    
+    You can add, remove, or rename columns to match your process.
+  </Step>
+
+  <Step title="Map Statuses to Columns">
+    Each column can contain one or more statuses. This allows multiple statuses to appear in the same column.
+    
+    For example, a "Done" column might include both "Completed" and "Verified" statuses.
+  </Step>
+</Steps>
+
+## Managing Board Columns
+
+### Adding Columns
+
+1. Click the **+** button at the right edge of your board
+2. Enter a column name
+3. Choose which statuses should appear in this column
+4. Click **Add Column**
+
+Columns are automatically positioned at the end of your board.
+
+### Reordering Columns
+
+Drag column headers left or right to reorder them. The column order determines:
+- How issues flow across your board
+- The visual representation of progress
+- Default column positions
+
+<Tip>
+Order columns from left to right to represent your workflow: start → in progress → review → done
+</Tip>
+
+### Editing Column Names
+
+1. Click the **•••** menu on the column header
+2. Select **Edit Column**
+3. Update the name
+4. Click **Save**
+
+### Removing Columns
+
+1. Click the **•••** menu on the column header
+2. Select **Archive Column**
+3. Confirm the action
+
+<Note>
+Archiving a column doesn't delete issues. They remain in their current status and will appear in other boards that show that status.
+</Note>
+
+## Mapping Statuses to Columns
+
+Columns and statuses work together to organize your board:
+
+- **Statuses** define the actual state of an issue (e.g., "In Review", "Testing")
+- **Columns** visually group one or more statuses together
+
+### Why Map Multiple Statuses?
+
+This flexibility allows you to:
+
+1. **Simplify visualization**: Show "Code Review", "QA Testing", and "Pending Deploy" all in an "In Progress" column
+2. **Create focused views**: Build a "QA Board" that shows only testing-related statuses
+3. **Adapt to team needs**: Different teams can view the same work through different lenses
+
+### How to Map Statuses
+
+<Steps>
+  <Step title="Open Column Settings">
+    Click the **•••** menu on a column header and select **Configure Statuses**
+  </Step>
+
+  <Step title="Select Statuses">
+    Check the boxes next to statuses that should appear in this column
+    
+    <Tip>
+    A status can appear in multiple columns across different boards, but typically appears in only one column per board.
+    </Tip>
+  </Step>
+
+  <Step title="Save Changes">
+    Click **Save** to apply the mapping. Issues with those statuses will now appear in the column.
+  </Step>
+</Steps>
+
+## Board Filtering
+
+Create specialized board views using filters:
+
+### Common Filter Patterns
+
+<Tabs>
+  <Tab title="By Assignee">
+    **Use Case**: Personal dashboards
+    
+    **Filter**: `assignee = currentUser()`
+    
+    Shows only issues assigned to the viewer.
+  </Tab>
+
+  <Tab title="By Priority">
+    **Use Case**: High-priority work tracking
+    
+    **Filter**: `priority IN (high, critical)`
+    
+    Shows only urgent issues.
+  </Tab>
+
+  <Tab title="By Issue Type">
+    **Use Case**: Bug-only board
+    
+    **Filter**: `type = Bug`
+    
+    Shows only bug issues.
+  </Tab>
+
+  <Tab title="By Team">
+    **Use Case**: Team-specific boards
+    
+    **Filter**: `assignee IN (user1, user2, user3)`
+    
+    Shows issues assigned to specific team members.
+  </Tab>
+</Tabs>
+
+### Setting Board Filters
+
+1. Open the board dropdown and select **Board Settings**
+2. Enter a filter query in the **Filter** field
+3. Click **Save**
+4. The board will automatically update to show only matching issues
+
+<Note>
+Filters are automatically applied and don't affect the actual issues—they only control visibility on this specific board.
+</Note>
+
+## Example Board Configurations
+
+### Development Team Setup
+
+**Main Kanban Board**
+- Columns: Backlog | To Do | In Development | Code Review | Testing | Done
+- Type: Kanban
+- Filter: None (shows all work)
+
+**Bug Board**
+- Columns: Reported | Investigating | Fixing | Verification | Closed
+- Type: Kanban  
+- Filter: `type = Bug`
+
+**Current Sprint**
+- Columns: To Do | In Progress | Review | Done
+- Type: Scrum
+- Filter: `sprint = currentSprint()`
+
+### Support Team Setup
+
+**Active Tickets**
+- Columns: New | Triaged | In Progress | Waiting on Customer | Resolved
+- Type: Kanban
+- Filter: `status != Closed`
+
+**My Tickets**
+- Columns: To Do | In Progress | Done
+- Type: Kanban
+- Filter: `assignee = currentUser()`
+
+### Marketing Team Setup
+
+**Campaign Board**
+- Columns: Planned | In Progress | Review | Published
+- Type: Kanban
+- Filter: None
+
+**Content Calendar**
+- Columns: Draft | Review | Scheduled | Published
+- Type: Kanban
+- Filter: `type = Content`
+
+## Board Management Best Practices
+
+<Tip>
+**Keep It Simple**: Start with 3-5 columns. Add more only when your team consistently needs finer-grained tracking.
+</Tip>
+
+<Tip>
+**Name Clearly**: Use action-oriented column names that make it obvious what work is happening ("In Code Review" vs. "Review").
+</Tip>
+
+<Tip>
+**Limit WIP**: Consider adding work-in-progress limits to columns to prevent bottlenecks and maintain flow.
+</Tip>
+
+<Tip>
+**Multiple Views**: Create separate boards for different perspectives rather than trying to make one board serve all purposes.
+</Tip>
+
+<Tip>
+**Review Regularly**: Adjust your board configuration as your process evolves. Archive boards that are no longer useful.
+</Tip>
+
+## Archiving Boards
+
+When a board is no longer needed:
+
+1. Open the board dropdown
+2. Select **Board Settings**
+3. Scroll to **Advanced** section
+4. Click **Archive Board**
+5. Confirm the action
+
+Archived boards:
+- Are removed from the board dropdown
+- Don't affect any issues or data
+- Can be restored from project settings
+- Help keep your workspace organized
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Managing Issues" icon="list-check" href="/guides/managing-issues">
+    Create and organize work items on your board
+  </Card>
+  
+  <Card title="Custom Workflows" icon="diagram-project" href="/guides/workflows">
+    Design status flows that match your process
+  </Card>
+  
+  <Card title="Team Collaboration" icon="users" href="/guides/team-collaboration">
+    Add team members and assign work
+  </Card>
+  
+  <Card title="Creating Projects" icon="folder-plus" href="/guides/creating-projects">
+    Learn about project setup
+  </Card>
+</CardGroup>

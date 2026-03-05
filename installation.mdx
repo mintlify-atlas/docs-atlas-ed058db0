@@ -1,0 +1,374 @@
+---
+title: Installation
+description: Install Taskcore using Docker, Docker Compose, or from source
+---
+
+Taskcore can be installed in multiple ways depending on your needs. Choose the method that best fits your environment.
+
+## Installation Methods
+
+<Tabs>
+  <Tab title="Docker Compose (Recommended)">
+    Docker Compose is the easiest way to run Taskcore with all dependencies configured automatically.
+
+    ### Prerequisites
+
+    - Docker 20.10+
+    - Docker Compose 2.0+
+    - Git
+
+    ### Steps
+
+    <Steps>
+      <Step title="Clone the repository">
+        ```bash
+        git clone https://github.com/start-codex/taskcore
+        cd taskcore
+        ```
+      </Step>
+
+      <Step title="Configure environment variables (optional)">
+        Copy the example environment file and customize if needed:
+
+        ```bash
+        cp .env.example .env
+        ```
+
+        Edit `.env` to change default values:
+
+        ```bash .env
+        # Database
+        DB_USER=taskcore
+        DB_PASSWORD=taskcore
+        DB_NAME=taskcore
+        DB_PORT=5432
+
+        # Application
+        PORT=8080
+        APP_PORT=8080
+
+        # JWT (change in production!)
+        JWT_SECRET=change-me-in-production
+        JWT_EXPIRY=24h
+        ```
+
+        <Warning>
+          Always change `JWT_SECRET` to a strong random value in production environments.
+        </Warning>
+      </Step>
+
+      <Step title="Start the services">
+        ```bash
+        docker compose up --build -d
+        ```
+
+        The `-d` flag runs containers in the background. Remove it to see logs in real-time.
+      </Step>
+
+      <Step title="Verify installation">
+        Check that services are running:
+
+        ```bash
+        docker compose ps
+        ```
+
+        You should see both `taskcore-db` and `taskcore-app` running.
+      </Step>
+
+      <Step title="Create your first user">
+        ```bash
+        curl -X POST http://localhost:8080/api/users \
+          -H "Content-Type: application/json" \
+          -d '{"email": "admin@example.com", "name": "Admin", "password": "secure-password"}'
+        ```
+      </Step>
+    </Steps>
+
+    ### Access the application
+
+    Open your browser to `http://localhost:8080`
+  </Tab>
+
+  <Tab title="Docker">
+    Run Taskcore as a single Docker container. You'll need to provide your own PostgreSQL database.
+
+    ### Prerequisites
+
+    - Docker 20.10+
+    - PostgreSQL 14+ (external or separate container)
+
+    ### Steps
+
+    <Steps>
+      <Step title="Start PostgreSQL">
+        If you don't have a PostgreSQL instance, start one:
+
+        ```bash
+        docker run -d \
+          --name taskcore-db \
+          -e POSTGRES_USER=taskcore \
+          -e POSTGRES_PASSWORD=taskcore \
+          -e POSTGRES_DB=taskcore \
+          -p 5432:5432 \
+          -v taskcore-data:/var/lib/postgresql/data \
+          postgres:18-alpine
+        ```
+      </Step>
+
+      <Step title="Build the Taskcore image">
+        Clone and build:
+
+        ```bash
+        git clone https://github.com/start-codex/taskcore
+        cd taskcore
+        docker build -t taskcore:latest .
+        ```
+
+        The build process:
+        1. Builds the SvelteKit frontend (Node.js 22)
+        2. Builds the Go backend (Go 1.26)
+        3. Embeds the frontend into the Go binary
+        4. Creates a minimal Alpine-based image
+      </Step>
+
+      <Step title="Run the application">
+        ```bash
+        docker run -d \
+          --name taskcore-app \
+          -p 8080:8080 \
+          -e DATABASE_URL="postgres://taskcore:taskcore@host.docker.internal:5432/taskcore?sslmode=disable" \
+          taskcore:latest
+        ```
+
+        <Note>
+          Use `host.docker.internal` to connect to a database running on your host machine. If your database is in another container on the same network, use the container name instead.
+        </Note>
+      </Step>
+    </Steps>
+
+    ### Docker network example
+
+    To connect containers using a Docker network:
+
+    ```bash
+    # Create network
+    docker network create taskcore-net
+
+    # Start database on network
+    docker run -d \
+      --name taskcore-db \
+      --network taskcore-net \
+      -e POSTGRES_USER=taskcore \
+      -e POSTGRES_PASSWORD=taskcore \
+      -e POSTGRES_DB=taskcore \
+      -v taskcore-data:/var/lib/postgresql/data \
+      postgres:18-alpine
+
+    # Start app on same network
+    docker run -d \
+      --name taskcore-app \
+      --network taskcore-net \
+      -p 8080:8080 \
+      -e DATABASE_URL="postgres://taskcore:taskcore@taskcore-db:5432/taskcore?sslmode=disable" \
+      taskcore:latest
+    ```
+  </Tab>
+
+  <Tab title="From Source">
+    Build and run Taskcore from source for development or customization.
+
+    ### Prerequisites
+
+    - Go 1.26+
+    - Node.js 22+
+    - pnpm 9+
+    - PostgreSQL 14+
+    - Git
+    - Make (optional, for convenience commands)
+
+    ### Steps
+
+    <Steps>
+      <Step title="Clone the repository">
+        ```bash
+        git clone https://github.com/start-codex/taskcore
+        cd taskcore
+        ```
+      </Step>
+
+      <Step title="Start PostgreSQL">
+        You can use Docker for the database:
+
+        ```bash
+        make db-up
+        ```
+
+        Or connect to an existing PostgreSQL instance by setting the `DATABASE_URL` environment variable.
+      </Step>
+
+      <Step title="Configure environment">
+        ```bash
+        cp .env.example .env
+        ```
+
+        Edit `.env` with your database connection:
+
+        ```bash
+        DATABASE_URL=postgres://taskcore:taskcore@localhost:5432/taskcore?sslmode=disable
+        PORT=8080
+        JWT_SECRET=dev-secret-change-in-production
+        ```
+      </Step>
+
+      <Step title="Build the frontend">
+        ```bash
+        cd front
+        corepack enable
+        pnpm install
+        pnpm build
+        cd ..
+        ```
+
+        The build output goes to `ui/dist` which will be embedded into the Go binary.
+      </Step>
+
+      <Step title="Build and run the backend">
+        ```bash
+        go mod download
+        go build -o taskcore ./cmd/server
+        ./taskcore
+        ```
+
+        The application will:
+        - Connect to PostgreSQL
+        - Run migrations automatically
+        - Start the HTTP server on port 8080
+      </Step>
+    </Steps>
+
+    ### Development workflow
+
+    For active development, you can run the frontend and backend separately:
+
+    **Terminal 1 - Frontend (with hot reload):**
+    ```bash
+    cd front
+    pnpm dev
+    ```
+
+    **Terminal 2 - Backend:**
+    ```bash
+    go run ./cmd/server
+    ```
+
+    **Terminal 3 - Database:**
+    ```bash
+    make db-up
+    ```
+
+    <Tip>
+      Run `make help` to see all available Make targets for database management, migrations, and development.
+    </Tip>
+  </Tab>
+</Tabs>
+
+## Post-Installation
+
+### Create your first user
+
+Taskcore doesn't have a built-in admin user. Create your first user via the API:
+
+```bash
+curl -X POST http://localhost:8080/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com", "name": "Your Name", "password": "yourpassword"}'
+```
+
+All API responses follow the envelope format:
+
+```json
+// Success
+{ "status": 200, "data": {...} }
+
+// Error
+{ "status": 400, "error": "description" }
+```
+
+### Access the application
+
+Open your browser to:
+- Default: `http://localhost:8080`
+- Custom port: `http://localhost:<your-port>`
+
+## Database Management
+
+Taskcore automatically runs migrations on startup. You can also manage migrations manually:
+
+### Using Make targets
+
+```bash
+# View migration status
+make migrate-status
+
+# Run migrations manually
+make migrate-up
+
+# Rollback last migration
+make migrate-down
+
+# Reset database (destroys all data!)
+make db-reset
+```
+
+### Using migrate CLI
+
+If you have [golang-migrate](https://github.com/golang-migrate/migrate) installed:
+
+```bash
+# Run migrations
+migrate -path migrations -database "postgres://taskcore:taskcore@localhost:5432/taskcore?sslmode=disable" up
+
+# Check version
+migrate -path migrations -database "postgres://taskcore:taskcore@localhost:5432/taskcore?sslmode=disable" version
+```
+
+## Updating Taskcore
+
+<Steps>
+  <Step title="Pull latest changes">
+    ```bash
+    git pull origin main
+    ```
+  </Step>
+
+  <Step title="Rebuild and restart">
+    <CodeGroup>
+      ```bash Docker Compose
+      docker compose down
+      docker compose up --build -d
+      ```
+
+      ```bash Docker
+      docker stop taskcore-app
+      docker rm taskcore-app
+      docker build -t taskcore:latest .
+      docker run -d --name taskcore-app -p 8080:8080 -e DATABASE_URL="..." taskcore:latest
+      ```
+
+      ```bash Source
+      cd front && pnpm install && pnpm build && cd ..
+      go build -o taskcore ./cmd/server
+      ./taskcore
+      ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+<Note>
+  Migrations run automatically on startup, so your database schema will be updated to the latest version.
+</Note>
+
+## Next Steps
+
+- [Docker Deployment](/docker-deployment) - Deploy to production
+- [Quickstart](/quickstart) - Get started with Taskcore

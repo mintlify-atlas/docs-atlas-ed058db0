@@ -1,0 +1,89 @@
+---
+title: API Overview
+description: Introduction to the Taskcore REST API
+---
+
+The Taskcore REST API provides programmatic access to all project management features. The API follows RESTful conventions and uses JSON for requests and responses.
+
+## Base URL
+
+All API endpoints are served under the `/api` prefix:
+
+```
+http://localhost:8080/api
+```
+
+For production deployments, replace `localhost:8080` with your server's domain.
+
+## Response Envelope
+
+All API responses use a consistent envelope format to provide metadata alongside the actual response data.
+
+### Success Response
+
+```json
+{
+  "status": 200,
+  "data": {
+    // Response data here
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "status": 400,
+  "error": "validation error message"
+}
+```
+
+<Note>
+  The `status` field in the envelope matches the HTTP status code.
+</Note>
+
+## HTTP Methods
+
+The API uses standard HTTP methods:
+
+- `GET` - Retrieve resources
+- `POST` - Create new resources
+- `PUT` - Update existing resources
+- `DELETE` - Archive/delete resources
+
+## Common Status Codes
+
+| Status Code | Description |
+|-------------|-------------|
+| `200` | Success |
+| `201` | Resource created |
+| `204` | Success with no content |
+| `400` | Bad request (invalid JSON) |
+| `404` | Resource not found |
+| `409` | Conflict (duplicate resource) |
+| `422` | Validation error |
+| `500` | Internal server error |
+
+## Resource IDs
+
+All resources use UUID identifiers. IDs are automatically generated when creating resources.
+
+## Timestamps
+
+All timestamps are returned in RFC3339 format:
+
+```json
+"created_at": "2026-03-05T14:30:00Z"
+```
+
+## Archived Resources
+
+Resources have an `archived_at` timestamp that is `null` for active resources. When a resource is archived (deleted), this field is set to the deletion timestamp. The API uses soft deletes.
+
+## Next Steps
+
+- [Authentication](/api/authentication) - Learn about authentication
+- [Users](/api/users) - User management and login
+- [Workspaces](/api/workspaces) - Team workspaces
+- [Projects](/api/projects) - Project management

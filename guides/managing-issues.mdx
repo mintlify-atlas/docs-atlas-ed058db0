@@ -1,0 +1,406 @@
+---
+title: Managing Issues
+description: Create, update, organize, and track work items across your projects
+icon: list-check
+---
+
+Issues are the fundamental work items in Taskcore. Whether you're tracking bugs, features, tasks, or support tickets, issues help you organize and manage all work.
+
+## What is an Issue?
+
+An issue represents a single unit of work in your project. Each issue has:
+
+- A **unique identifier** (e.g., ENG-42, MKT-15)
+- A **title** and **description**
+- An **issue type** (bug, task, story, etc.)
+- A **status** showing its current state
+- A **priority** level
+- An **assignee** (who's working on it)
+- A **reporter** (who created it)
+- Optional **due date**
+- A **position** within its status (for ordering)
+
+## Creating an Issue
+
+<Steps>
+  <Step title="Open the Create Dialog">
+    From any project view, click the **Create** button or press **C** on your keyboard.
+  </Step>
+
+  <Step title="Fill in Required Fields">
+    Enter the essential information:
+    
+    - **Title**: A clear, concise summary (required)
+    - **Issue Type**: Select from your project's issue types (required)
+    - **Description**: Detailed information about the work
+    
+    <Tip>
+    Write descriptive titles that make sense without context:
+    - ✅ "Add user authentication to API endpoints"
+    - ✅ "Fix crash when uploading large images"
+    - ❌ "Update the thing"
+    - ❌ "Bug"
+    </Tip>
+  </Step>
+
+  <Step title="Set Priority and Assignment">
+    Configure work details:
+    
+    - **Priority**: Low, Medium, High, or Critical (default: Medium)
+    - **Assignee**: Leave unassigned or select a team member
+    - **Due Date**: Optional deadline for completion
+    
+    <Note>
+    Issues are automatically assigned to the default status (typically "To Do" or "Backlog").
+    </Note>
+  </Step>
+
+  <Step title="Create and Continue">
+    Click **Create** to save the issue, or **Create Another** to immediately create more issues.
+    
+    The new issue receives an automatically incremented number (e.g., if ENG-42 exists, the next is ENG-43).
+  </Step>
+</Steps>
+
+## Quick Create from Board
+
+Create issues directly in a specific status:
+
+1. Click the **+** button at the top of any board column
+2. Enter a title
+3. Press **Enter** to create with defaults, or **Shift+Enter** to open the full create dialog
+
+The issue is automatically created in that column's status.
+
+## Editing Issues
+
+### Inline Editing
+
+Quickly update fields from any view:
+
+- **Title**: Click the title to edit in place
+- **Assignee**: Click the avatar or "Unassigned" to select someone
+- **Priority**: Click the priority badge to change it
+- **Due Date**: Click the date or calendar icon
+
+### Full Edit Mode
+
+1. Click an issue to open the detail view
+2. Click any field to edit it
+3. Changes save automatically
+4. Press **Esc** to close the detail view
+
+### Bulk Editing
+
+Edit multiple issues at once:
+
+1. Select issues by checking their boxes
+2. Click **Bulk Actions** in the toolbar
+3. Choose an action:
+   - Assign to user
+   - Change priority
+   - Move to status
+   - Add to sprint (Scrum boards)
+   - Archive
+
+## Issue Priorities
+
+Use priorities to communicate urgency:
+
+<Tabs>
+  <Tab title="Low">
+    **Color**: Blue
+    
+    **Use For**:
+    - Nice-to-have improvements
+    - Future optimizations
+    - Low-impact issues
+    
+    **Example**: "Update placeholder text in settings page"
+  </Tab>
+
+  <Tab title="Medium">
+    **Color**: Green (default)
+    
+    **Use For**:
+    - Normal work items
+    - Standard features
+    - Minor bugs
+    
+    **Example**: "Add export button to reports dashboard"
+  </Tab>
+
+  <Tab title="High">
+    **Color**: Orange
+    
+    **Use For**:
+    - Important features
+    - Impactful bugs
+    - Customer commitments
+    
+    **Example**: "Fix payment processing timeout errors"
+  </Tab>
+
+  <Tab title="Critical">
+    **Color**: Red
+    
+    **Use For**:
+    - System outages
+    - Security vulnerabilities
+    - Data loss issues
+    - Blocking problems
+    
+    **Example**: "Production API returning 500 errors"
+  </Tab>
+</Tabs>
+
+<Tip>
+**Avoid Priority Inflation**: If everything is high priority, nothing is. Reserve Critical for true emergencies.
+</Tip>
+
+## Moving Issues
+
+### Drag and Drop on Board
+
+The fastest way to update issue status:
+
+1. Click and hold an issue card
+2. Drag it to a different column
+3. Drop it in position
+
+The issue's status automatically updates to match the target column.
+
+### Reordering Within a Column
+
+Change the order of issues in a column:
+
+1. Drag an issue card up or down within the same column
+2. Drop it at the desired position
+
+This helps prioritize work within a status without changing the status itself.
+
+### Status Menu
+
+Update status from the issue detail view:
+
+1. Open the issue
+2. Click the current status
+3. Select a new status from the dropdown
+4. The issue moves to the new status automatically
+
+## Assigning Work
+
+### Assigning to Team Members
+
+1. Click the assignee field on an issue
+2. Search for or select a team member
+3. Click to assign
+
+Only project members with appropriate permissions can be assigned.
+
+<Note>
+**Pro Tip**: Type `@username` in comments to mention someone without assigning the entire issue to them.
+</Note>
+
+### Self-Assignment
+
+Quickly assign work to yourself:
+
+- Click **Assign to Me** in the issue detail view
+- Or drag an issue to your "My Work" filter
+- Or press **A** then **M** when an issue is selected
+
+### Unassigning Issues
+
+1. Click the assignee avatar
+2. Select **Unassigned** at the top of the dropdown
+3. The issue returns to the unassigned pool
+
+## Filtering and Searching
+
+### Quick Filters
+
+Use the filter bar above your board:
+
+- **Assignee**: Show only issues assigned to specific people
+- **Priority**: Filter by Low, Medium, High, or Critical
+- **Issue Type**: Show only specific types (bugs, tasks, etc.)
+- **Search**: Find issues by title or description text
+
+### Advanced Filters
+
+Create complex queries:
+
+1. Click **Advanced Filters**
+2. Build queries using:
+   - Field operators (`=`, `!=`, `IN`, `NOT IN`)
+   - Logical operators (`AND`, `OR`)
+   - Functions (`currentUser()`, `currentSprint()`)
+3. Save filters for reuse
+
+**Example Queries**:
+```
+assignee = currentUser() AND priority IN (high, critical)
+status = "In Progress" AND dueDate < today()
+type = Bug AND assignee = empty()
+```
+
+### Saved Filters
+
+Create reusable filter presets:
+
+1. Configure your filters
+2. Click **Save Filter**
+3. Name it (e.g., "My High Priority Work")
+4. Access it anytime from the filter dropdown
+
+## Organizing with Parent-Child Relationships
+
+Break down large work items into smaller pieces:
+
+### Creating Sub-issues
+
+1. Open a parent issue
+2. Scroll to the **Sub-issues** section
+3. Click **Create Sub-issue**
+4. Fill in details
+5. The sub-issue is automatically linked
+
+### Hierarchy Rules
+
+- Sub-issues must have a higher level than their parent
+- Example: Epic → Story → Task → Sub-task
+- All issues in a hierarchy must be in the same project
+- Circular references are prevented automatically
+
+<Tip>
+**Best Practice**: Use hierarchy for decomposition, not just categorization. Each level should represent progressively smaller units of work.
+</Tip>
+
+### Viewing Hierarchy
+
+- **Board View**: Parent issues show a sub-issue count badge
+- **List View**: Expand/collapse to see children
+- **Detail View**: See full parent/child tree
+
+## Issue Activity and History
+
+Track everything that happens to an issue:
+
+### Activity Log
+
+The activity section shows:
+- **Created**: When and by whom
+- **Updated**: Field changes with old/new values
+- **Moved**: Status transitions
+- **Commented**: Team discussions
+
+### Adding Comments
+
+1. Open an issue
+2. Scroll to the **Activity** section
+3. Type your comment in the text box
+4. Use `@mention` to notify team members
+5. Click **Comment** to post
+
+### Watching Issues
+
+Stay notified about specific issues:
+
+1. Open an issue
+2. Click the **Watch** button (eye icon)
+3. You'll receive notifications for all updates
+
+You're automatically watching issues you:
+- Created
+- Are assigned to
+- Have commented on
+
+## Archiving and Deleting
+
+### Archiving Issues
+
+Hide completed or irrelevant issues:
+
+1. Open the issue
+2. Click **•••** menu
+3. Select **Archive**
+4. Confirm the action
+
+Archived issues:
+- Are hidden from boards and lists by default
+- Preserve all data and history
+- Can be restored later
+- Don't count toward issue limits
+
+### Viewing Archived Issues
+
+1. Go to project settings
+2. Select **Archived Issues**
+3. Browse or search archived items
+4. Click **Restore** to unarchive
+
+<Note>
+**Deleting Issues**: Permanent deletion is restricted to project admins and should be used rarely, as it removes all history.
+</Note>
+
+## Keyboard Shortcuts
+
+Work faster with keyboard shortcuts:
+
+| Shortcut | Action |
+|----------|--------|
+| `C` | Create new issue |
+| `E` | Edit selected issue |
+| `A` | Assign selected issue |
+| `/` | Focus search |
+| `?` | Show all shortcuts |
+| `Esc` | Close dialogs |
+| `↑` `↓` | Navigate issues |
+| `Enter` | Open selected issue |
+
+## Best Practices
+
+<Tip>
+**Descriptive Titles**: Write titles that explain what needs to be done without requiring additional context.
+</Tip>
+
+<Tip>
+**Regular Updates**: Keep issue status current. Don't let issues sit in "In Progress" for weeks.
+</Tip>
+
+<Tip>
+**Acceptance Criteria**: Add clear completion criteria in the description so everyone knows when it's "done."
+</Tip>
+
+<Tip>
+**Appropriate Granularity**: Issues should be completable within a few days. Break down larger work into parent-child relationships.
+</Tip>
+
+<Tip>
+**Priority Discipline**: Review priorities regularly and adjust as business needs change.
+</Tip>
+
+<Tip>
+**Actionable Descriptions**: Include enough context for someone to start work without asking questions.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configure Boards" icon="columns" href="/guides/configuring-boards">
+    Organize issues visually with custom boards
+  </Card>
+  
+  <Card title="Design Workflows" icon="diagram-project" href="/guides/workflows">
+    Create custom status flows
+  </Card>
+  
+  <Card title="Team Collaboration" icon="users" href="/guides/team-collaboration">
+    Work together on issues
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api-reference/issues/create">
+    Automate issue management
+  </Card>
+</CardGroup>

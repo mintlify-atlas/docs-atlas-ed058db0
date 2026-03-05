@@ -1,0 +1,503 @@
+---
+title: Docker Deployment
+description: Deploy Taskcore to production using Docker with proper configuration, security, and persistence
+---
+
+This guide covers deploying Taskcore in production environments using Docker. You'll learn about environment configuration, data persistence, networking, and security best practices.
+
+## Architecture Overview
+
+Taskcore uses a simple two-container architecture:
+
+- **taskcore-app** - Single Go binary with embedded SvelteKit frontend
+- **taskcore-db** - PostgreSQL 18 database
+
+The application automatically runs database migrations on startup, making deployments straightforward.
+
+## Production Deployment
+
+<Steps>
+  <Step title="Prepare your environment">
+    Create a production directory on your server:
+
+    ```bash
+    mkdir -p /opt/taskcore
+    cd /opt/taskcore
+    ```
+
+    Clone the repository:
+
+    ```bash
+    git clone https://github.com/start-codex/taskcore .
+    ```
+  </Step>
+
+  <Step title="Configure environment variables">
+    Create a `.env` file with production settings:
+
+    ```bash .env
+    # Database Configuration
+    DB_USER=taskcore
+    DB_PASSWORD=<strong-random-password>
+    DB_NAME=taskcore
+    DB_PORT=5432
+
+    # Application Configuration
+    PORT=8080
+    APP_PORT=8080
+    ENV=production
+
+    # Security
+    JWT_SECRET=<generate-strong-random-secret>
+    JWT_EXPIRY=24h
+
+    # SMTP Configuration (optional - for email notifications)
+    SMTP_HOST=smtp.your-provider.com
+    SMTP_PORT=587
+    SMTP_USER=your-email@example.com
+    SMTP_PASSWORD=<smtp-password>
+    ```
+
+    <Warning>
+      **Critical Security Settings:**
+      - Generate a strong random `JWT_SECRET` (at least 32 characters)
+      - Use a strong database password
+      - Never commit `.env` files to version control
+    </Warning>
+
+    Generate a secure JWT secret:
+
+    ```bash
+    openssl rand -base64 32
+    ```
+  </Step>
+
+  <Step title="Create docker-compose.prod.yml">
+    Create a production-specific Docker Compose file:
+
+    ```yaml docker-compose.prod.yml
+    services:
+      db:
+        image: postgres:18-alpine
+        container_name: taskcore-db
+        restart: always
+        environment:
+          POSTGRES_USER: ${DB_USER}
+          POSTGRES_PASSWORD: ${DB_PASSWORD}
+          POSTGRES_DB: ${DB_NAME}
+        ports:
+          - "127.0.0.1:${DB_PORT:-5432}:5432"
+        volumes:
+          - /opt/taskcore/data/postgres:/var/lib/postgresql/data
+        healthcheck:
+          test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+          interval: 10s
+          timeout: 5s
+          retries: 5
+          start_period: 30s
+        networks:
+          - taskcore-net
+        logging:
+          driver: "json-file"
+          options:
+            max-size: "10m"
+            max-file: "3"
+
+      app:
+        build:
+          context: .
+          dockerfile: Dockerfile
+        image: taskcore:production
+        container_name: taskcore-app
+        restart: always
+        ports:
+          - "${APP_PORT:-8080}:8080"
+        environment:
+          DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable
+          PORT: 8080
+          ENV: production
+          JWT_SECRET: ${JWT_SECRET}
+          JWT_EXPIRY: ${JWT_EXPIRY}
+        depends_on:
+          db:
+            condition: service_healthy
+        networks:
+          - taskcore-net
+        logging:
+          driver: "json-file"
+          options:
+            max-size: "10m"
+            max-file: "3"
+        healthcheck:
+          test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 40s
+
+    networks:
+      taskcore-net:
+        driver: bridge
+
+    volumes:
+      postgres-data:
+        driver: local
+    ```
+
+    Key production features:
+    - `restart: always` - Auto-restart on failure
+    - Health checks for both services
+    - Log rotation to prevent disk space issues
+    - Database port bound to localhost only
+    - Persistent volume for database data
+  </Step>
+
+  <Step title="Deploy the application">
+    Build and start the services:
+
+    ```bash
+    docker compose -f docker-compose.prod.yml up --build -d
+    ```
+
+    Verify services are running:
+
+    ```bash
+    docker compose -f docker-compose.prod.yml ps
+    ```
+
+    Check logs:
+
+    ```bash
+    docker compose -f docker-compose.prod.yml logs -f app
+    ```
+
+    You should see:
+    ```
+    migrations applied
+    server listening port=8080
+    ```
+  </Step>
+
+  <Step title="Create initial admin user">
+    ```bash
+    curl -X POST http://localhost:8080/api/users \
+      -H "Content-Type: application/json" \
+      -d '{"email": "admin@yourcompany.com", "name": "Admin", "password": "secure-password"}'
+    ```
+  </Step>
+</Steps>
+
+## Environment Variables Reference
+
+### Required Variables
+
+| Variable | Description | Example |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://user:pass@host:5432/dbname?sslmode=disable` |
+| `JWT_SECRET` | Secret key for JWT token signing | `<32+ character random string>` |
+
+### Optional Variables
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `PORT` | Application HTTP port | `8080` |
+| `APP_PORT` | Host port mapping | `8080` |
+| `ENV` | Environment name | `development` |
+| `JWT_EXPIRY` | JWT token expiration | `24h` |
+| `DB_USER` | Database username | `taskcore` |
+| `DB_PASSWORD` | Database password | `taskcore` |
+| `DB_NAME` | Database name | `taskcore` |
+| `DB_PORT` | Database port | `5432` |
+| `SMTP_HOST` | SMTP server for emails | - |
+| `SMTP_PORT` | SMTP server port | `587` |
+| `SMTP_USER` | SMTP username | - |
+| `SMTP_PASSWORD` | SMTP password | - |
+
+<Note>
+  The application reads `DATABASE_URL` directly. The separate `DB_*` variables are used by docker-compose to configure the PostgreSQL container.
+</Note>
+
+## Data Persistence
+
+### Database Backup
+
+Backup your PostgreSQL database regularly:
+
+```bash
+# Create backup
+docker exec taskcore-db pg_dump -U taskcore -d taskcore > backup-$(date +%Y%m%d-%H%M%S).sql
+
+# Restore from backup
+docker exec -i taskcore-db psql -U taskcore -d taskcore < backup-20260305-103000.sql
+```
+
+### Automated Backups
+
+Create a cron job for automated backups:
+
+```bash
+# Edit crontab
+crontab -e
+
+# Add daily backup at 2 AM
+0 2 * * * cd /opt/taskcore && docker exec taskcore-db pg_dump -U taskcore -d taskcore | gzip > /opt/taskcore/backups/backup-$(date +\%Y\%m\%d-\%H\%M\%S).sql.gz
+```
+
+### Volume Management
+
+Check volume usage:
+
+```bash
+docker volume ls
+docker volume inspect taskcore_postgres-data
+```
+
+Backup the entire volume:
+
+```bash
+# Create tar archive of volume
+docker run --rm -v taskcore_postgres-data:/data -v $(pwd):/backup alpine tar czf /backup/postgres-volume-backup.tar.gz -C /data .
+```
+
+## Reverse Proxy Setup
+
+### Nginx
+
+Proxy Taskcore through Nginx with SSL:
+
+```nginx /etc/nginx/sites-available/taskcore
+server {
+    listen 80;
+    server_name taskcore.yourcompany.com;
+
+    # Redirect HTTP to HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name taskcore.yourcompany.com;
+
+    # SSL configuration
+    ssl_certificate /etc/letsencrypt/live/taskcore.yourcompany.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/taskcore.yourcompany.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # Proxy to Taskcore
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support (if needed in the future)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Client upload size
+    client_max_body_size 10M;
+}
+```
+
+Enable the site:
+
+```bash
+ln -s /etc/nginx/sites-available/taskcore /etc/nginx/sites-enabled/
+nginx -t
+systemctl reload nginx
+```
+
+### Traefik
+
+For Traefik users, add labels to your docker-compose file:
+
+```yaml
+app:
+  # ... existing config ...
+  labels:
+    - "traefik.enable=true"
+    - "traefik.http.routers.taskcore.rule=Host(`taskcore.yourcompany.com`)"
+    - "traefik.http.routers.taskcore.entrypoints=websecure"
+    - "traefik.http.routers.taskcore.tls.certresolver=letsencrypt"
+    - "traefik.http.services.taskcore.loadbalancer.server.port=8080"
+```
+
+## Monitoring and Logging
+
+### View Logs
+
+```bash
+# Follow application logs
+docker compose -f docker-compose.prod.yml logs -f app
+
+# Follow database logs
+docker compose -f docker-compose.prod.yml logs -f db
+
+# View last 100 lines
+docker compose -f docker-compose.prod.yml logs --tail=100 app
+```
+
+### Health Checks
+
+Check service health:
+
+```bash
+# Container health status
+docker inspect --format='{{.State.Health.Status}}' taskcore-app
+
+# Full health check details
+docker inspect taskcore-app | jq '.[0].State.Health'
+```
+
+### Resource Monitoring
+
+```bash
+# Real-time resource usage
+docker stats taskcore-app taskcore-db
+
+# One-time snapshot
+docker stats --no-stream taskcore-app taskcore-db
+```
+
+## Updating in Production
+
+<Steps>
+  <Step title="Backup your data">
+    Always backup before updating:
+
+    ```bash
+    docker exec taskcore-db pg_dump -U taskcore -d taskcore > backup-pre-update.sql
+    ```
+  </Step>
+
+  <Step title="Pull latest changes">
+    ```bash
+    cd /opt/taskcore
+    git pull origin main
+    ```
+  </Step>
+
+  <Step title="Rebuild and restart">
+    ```bash
+    docker compose -f docker-compose.prod.yml up --build -d
+    ```
+
+    The app will automatically run new migrations on startup.
+  </Step>
+
+  <Step title="Verify deployment">
+    ```bash
+    # Check logs for successful startup
+    docker compose -f docker-compose.prod.yml logs -f app
+
+    # Verify health
+    curl http://localhost:8080/api/health
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  Taskcore automatically runs migrations on startup, so you don't need to run them manually. The app will wait for the database to be healthy before starting.
+</Tip>
+
+## Zero-Downtime Updates
+
+For zero-downtime deployments:
+
+1. **Use a load balancer** - Run multiple instances behind a load balancer
+2. **Rolling updates** - Update one instance at a time
+3. **Health checks** - Ensure the load balancer respects health check endpoints
+
+## Troubleshooting
+
+### Container won't start
+
+Check logs for errors:
+
+```bash
+docker compose -f docker-compose.prod.yml logs app
+```
+
+Common issues:
+- Invalid `DATABASE_URL` format
+- Missing `JWT_SECRET` environment variable
+- Database not ready (check health status)
+
+### Database connection errors
+
+Verify database is healthy:
+
+```bash
+docker exec taskcore-db pg_isready -U taskcore -d taskcore
+```
+
+Test connection from app container:
+
+```bash
+docker exec taskcore-app wget -O- http://db:5432
+```
+
+### Migration failures
+
+Check migration status:
+
+```bash
+# Enter database shell
+docker exec -it taskcore-db psql -U taskcore -d taskcore
+
+# Check schema_migrations table
+SELECT * FROM schema_migrations;
+```
+
+Force migration version (use with caution):
+
+```bash
+# This requires golang-migrate CLI installed
+migrate -path migrations -database "postgres://taskcore:taskcore@localhost:5432/taskcore?sslmode=disable" force <version>
+```
+
+### Disk space issues
+
+Clean up Docker resources:
+
+```bash
+# Remove unused images
+docker image prune -a
+
+# Remove old logs
+truncate -s 0 $(docker inspect --format='{{.LogPath}}' taskcore-app)
+truncate -s 0 $(docker inspect --format='{{.LogPath}}' taskcore-db)
+```
+
+## Security Best Practices
+
+<Warning>
+  **Production Security Checklist:**
+  - [ ] Use strong random `JWT_SECRET` (32+ characters)
+  - [ ] Use strong database password
+  - [ ] Never expose database port publicly
+  - [ ] Use HTTPS with valid SSL certificates
+  - [ ] Keep Docker and base images updated
+  - [ ] Regularly backup your database
+  - [ ] Monitor logs for suspicious activity
+  - [ ] Restrict Docker socket access
+  - [ ] Use environment variables, never hardcode secrets
+  - [ ] Enable firewall rules to restrict access
+</Warning>
+
+## Next Steps
+
+- Configure email notifications with SMTP settings
+- Set up automated backups
+- Configure monitoring and alerting
+- Review and customize project templates
+- Invite your team members

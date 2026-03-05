@@ -1,0 +1,96 @@
+---
+title: Introduction
+description: Open source project management platform for teams with Kanban boards, issue tracking, and configurable workflows
+---
+
+# Welcome to Taskcore
+
+Taskcore is an open source project management platform designed for teams who want the power of tools like Jira without the complexity or vendor lock-in. Built with simplicity and flexibility in mind, Taskcore helps you organize work on Kanban and Scrum-style boards, track issues, and ship faster.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get Taskcore running in minutes with Docker
+  </Card>
+  <Card title="Core Concepts" icon="book" href="/concepts/workspaces">
+    Learn about workspaces, projects, and boards
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Integrate with the REST API
+  </Card>
+  <Card title="Architecture" icon="building" href="/architecture/overview">
+    Understand how Taskcore works under the hood
+  </Card>
+</CardGroup>
+
+## Why Taskcore?
+
+Current project management tools often fall into one of these traps:
+
+- **Too complex** for small and medium teams
+- **Too rigid** — hard to adapt without expensive enterprise plans
+- **Vendor lock-in** — your data lives in someone else's cloud
+
+Taskcore offers a different approach:
+
+<CardGroup cols={3}>
+  <Card title="Simple & Fast" icon="bolt">
+    Start in minutes with sensible defaults. No steep learning curve.
+  </Card>
+  <Card title="Configurable" icon="sliders">
+    Adapt workflows, statuses, and boards to match how your team works.
+  </Card>
+  <Card title="Self-Hosted" icon="server">
+    Run Taskcore on your infrastructure. Full control over your data.
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Flexible Board Management
+Create Kanban or Scrum boards with custom columns mapped to your project statuses. Drag and drop issues between columns to update their state.
+
+### Configurable Workflows
+Each project defines its own statuses and issue types. Start with simple defaults like "To Do", "In Progress", "Done", or create complex workflows tailored to your team.
+
+### Issue Hierarchy
+Organize work with parent/child relationships. Track epics, stories, tasks, and subtasks — all configured at the project level.
+
+### Multi-Workspace Support
+Manage multiple teams or clients with workspace isolation. Each workspace has its own projects, members, and permissions.
+
+### REST API
+Integrate Taskcore with your existing tools using a clean REST API. Automate workflows, sync data, and build custom integrations.
+
+### Built for Self-Hosting
+Deploy Taskcore as a single Docker container or with docker-compose. Lightweight, maintainable, and designed to run on modest infrastructure.
+
+## Design Principles
+
+### Open Source First
+Clear contribution path, modular architecture, and AGPL-3.0 license. No vendor lock-in, ever.
+
+### Project-Level Configuration
+Each project defines its own statuses, issue types, and boards. No global settings that force your team into a one-size-fits-all workflow.
+
+### Explicit Over Magic
+Raw SQL queries, no ORM, no hidden abstractions. The codebase is maintainable and transparent.
+
+### Minimal Defaults
+Ships with "To Do", "In Progress", "Done" out of the box. Extend and customize as your needs grow.
+
+## Technology Stack
+
+Taskcore is built with modern, battle-tested technologies:
+
+- **Backend**: Go with standard library HTTP routing
+- **Frontend**: SvelteKit + shadcn-svelte components
+- **Database**: PostgreSQL with explicit SQL queries
+- **Deployment**: Single Docker image for easy self-hosting
+
+## Getting Started
+
+Ready to try Taskcore? Jump to the [Quick Start](/quickstart) guide to get your instance running in minutes.
+
+<Card title="Quick Start Guide" icon="play" href="/quickstart">
+  Launch Taskcore with Docker and create your first project
+</Card>

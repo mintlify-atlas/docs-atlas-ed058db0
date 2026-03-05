@@ -1,0 +1,288 @@
+---
+title: Architecture Overview
+description: High-level architecture, design principles, and technology stack of Taskcore
+---
+
+Taskcore is built as a **modular monolith** with a clear separation of concerns, optimized for simplicity, maintainability, and low resource consumption.
+
+## Design Philosophy
+
+The architecture is guided by several key principles:
+
+- **Single binary deployment** — Easy to deploy and operate
+- **Low resource footprint** — Efficient memory and CPU usage
+- **Domain-driven structure** — Organized by business domains, not technical layers
+- **Modern UX without SPA bloat** — Progressive enhancement with SvelteKit
+- **Explicit over magical** — Direct SQL queries instead of heavy ORMs
+
+<Note>
+  Taskcore deliberately avoids microservices complexity in favor of a well-structured monolith. This reduces operational overhead while maintaining clear boundaries between domains.
+</Note>
+
+## Technology Stack
+
+### Backend
+
+- **Language**: Go 1.23+
+- **HTTP Router**: Standard library `net/http` (Go 1.22+ native routing)
+- **Database**: PostgreSQL with explicit SQL
+- **SQL Library**: `database/sql` + `sqlx` for scanning
+- **Migrations**: golang-migrate
+- **Authentication**: Session-based with secure cookies + optional OAuth
+
+### Frontend
+
+- **Framework**: SvelteKit with static adapter
+- **Language**: TypeScript
+- **Styling**: TailwindCSS v4
+- **UI Components**: bits-ui (headless components)
+- **Icons**: Lucide Svelte
+
+### Infrastructure
+
+- **Deployment**: Single binary with embedded static assets
+- **Observability**: Structured JSON logging with request IDs
+- **Database**: PostgreSQL with connection pooling
+
+## Application Style
+
+### Modular Monolith
+
+Taskcore uses a monolithic architecture with strong internal modularity:
+
+- Each domain is isolated in its own package
+- Domains communicate through well-defined function calls
+- No microservices overhead in the MVP phase
+- Clear upgrade path if domains need to be extracted later
+
+### API Design
+
+The REST API is versioned under `/api` with consistent patterns:
+
+```
+POST   /api/projects/:projectID/issues
+GET    /api/projects/:projectID/issues
+GET    /api/projects/:projectID/issues/:issueID
+PUT    /api/projects/:projectID/issues/:issueID
+DELETE /api/projects/:projectID/issues/:issueID
+POST   /api/projects/:projectID/issues/:issueID/move
+```
+
+All endpoints follow RESTful conventions with:
+- Proper HTTP methods (GET, POST, PUT, DELETE)
+- Consistent error responses
+- JSON request/response bodies
+- Resource-oriented URLs
+
+### Data Model
+
+Taskcore follows a **Jira-like model**:
+
+- **Issues belong to projects** (not boards)
+- **Statuses belong to projects** (not global)
+- **Boards are views** over issues with filters and column mappings
+
+This design enables:
+- Multiple boards per project with different workflows
+- Flexible status management per project
+- Clear ownership and permissions
+
+## Project Structure
+
+```
+taskcore/
+├── cmd/
+│   └── server/
+│       ├── main.go           # Application entrypoint
+│       ├── middleware.go     # HTTP middleware (logging, recovery, request ID)
+│       └── ui.go             # Static file serving
+├── internal/                 # Private application code
+│   ├── issues/              # Issue domain
+│   ├── projects/            # Project domain
+│   ├── boards/              # Board domain
+│   ├── workspaces/          # Workspace domain
+│   ├── users/               # User domain
+│   ├── statuses/            # Status domain
+│   ├── issuetypes/          # Issue type domain
+│   └── respond/             # HTTP response helpers
+├── migrations/              # SQL migrations
+│   ├── 0001_init.up.sql
+│   └── 0001_init.down.sql
+└── front/                   # SvelteKit frontend
+    ├── src/
+    │   ├── lib/
+    │   │   ├── api.ts       # Type-safe API client
+    │   │   └── components/  # Svelte components
+    │   └── routes/          # SvelteKit routes
+    └── package.json
+```
+
+<Accordion title="Why internal/ instead of pkg/?">
+  The `internal/` directory is a special Go convention that prevents code from being imported by external projects. Since Taskcore is an application (not a library), all packages should be private. This enforces encapsulation and prevents accidental API surface exposure.
+</Accordion>
+
+## Key Architectural Decisions
+
+### No ORM
+
+Taskcore uses explicit SQL queries instead of an ORM:
+
+**Rationale:**
+- Full control over query performance
+- No hidden N+1 queries
+- Easier to optimize and debug
+- PostgreSQL-specific features (CTEs, triggers, constraints)
+
+**Implementation:**
+- Raw SQL strings in `store.go` files
+- `sqlx` for result scanning only
+- Prepared statements for safety
+
+### Domain-Driven Packages
+
+Each domain lives in a flat package structure:
+
+```
+internal/issues/
+  issues.go              # Domain types, errors, public API
+  store.go               # SQL queries (private)
+  handler.go             # HTTP handlers
+  issues_test.go         # Unit tests
+  store_integration_test.go  # Integration tests
+```
+
+**Benefits:**
+- Clear boundaries between domains
+- Easy to test in isolation
+- No circular dependencies
+- Simple to understand and navigate
+
+<Note>
+  This differs from traditional layered architectures (controller/service/repository). Go is not an OOP language — we embrace its functional style with packages as namespaces.
+</Note>
+
+### Function-Based API
+
+Instead of structs with methods, domain packages export functions:
+
+```go
+// Public API in issues/issues.go
+func CreateIssue(ctx context.Context, db *sqlx.DB, params CreateIssueParams) (Issue, error)
+func GetIssue(ctx context.Context, db *sqlx.DB, projectID, issueID string) (Issue, error)
+func MoveIssue(ctx context.Context, db *sqlx.DB, params MoveIssueParams) error
+
+// Private SQL in issues/store.go
+func createIssue(ctx context.Context, db *sqlx.DB, params CreateIssueParams) (Issue, error)
+func getIssue(ctx context.Context, db *sqlx.DB, projectID, issueID string) (Issue, error)
+```
+
+**Why functions over methods?**
+- Dependencies are explicit (no hidden state)
+- Easier to test (no mock setup)
+- Simpler to understand (no inheritance)
+- More idiomatic Go
+
+### Thin HTTP Handlers
+
+Handlers only handle HTTP concerns:
+
+```go
+func handleCreate(db *sqlx.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        // 1. Parse request
+        var body CreateIssueBody
+        if err := respond.Decode(r, &body); err != nil {
+            respond.Error(w, http.StatusBadRequest, "invalid JSON")
+            return
+        }
+        
+        // 2. Call domain function
+        issue, err := CreateIssue(r.Context(), db, body.ToParams())
+        
+        // 3. Write response
+        if err != nil {
+            fail(w, err)
+            return
+        }
+        respond.JSON(w, http.StatusCreated, issue)
+    }
+}
+```
+
+All business logic lives in domain functions, not handlers.
+
+## Observability
+
+Taskcore includes minimal but effective observability:
+
+### Structured Logging
+
+```go
+slog.Info("request",
+    "method", r.Method,
+    "path", r.URL.Path,
+    "status", sw.status,
+    "duration_ms", time.Since(start).Milliseconds(),
+    "request_id", w.Header().Get("X-Request-ID"),
+)
+```
+
+All logs are JSON-formatted for easy parsing and aggregation.
+
+### Request IDs
+
+Every request gets a unique ID for tracing:
+
+```go
+func withRequestID(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        b := make([]byte, 16)
+        _, _ = rand.Read(b)
+        w.Header().Set("X-Request-ID", hex.EncodeToString(b))
+        next.ServeHTTP(w, r)
+    })
+}
+```
+
+### Panic Recovery
+
+A middleware catches panics to prevent crashes:
+
+```go
+func withRecover(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        defer func() {
+            if rec := recover(); rec != nil {
+                slog.Error("panic recovered", "error", rec)
+                respond.Error(w, http.StatusInternalServerError, "internal server error")
+            }
+        }()
+        next.ServeHTTP(w, r)
+    })
+}
+```
+
+## Security Considerations
+
+- **Access control**: Workspace and project-level permissions
+- **Input validation**: At handler and domain layers
+- **CSRF protection**: For form submissions
+- **Secure cookies**: `HttpOnly`, `Secure`, `SameSite` flags
+- **SQL injection**: Prepared statements throughout
+- **Database constraints**: Enforced at PostgreSQL level
+
+## Next Steps
+
+Explore the detailed architecture documentation:
+
+<CardGroup cols={3}>
+  <Card title="Data Model" icon="database" href="/architecture/data-model">
+    Database schema and relationships
+  </Card>
+  <Card title="Backend" icon="server" href="/architecture/backend">
+    Go structure and conventions
+  </Card>
+  <Card title="Frontend" icon="window" href="/architecture/frontend">
+    SvelteKit setup and patterns
+  </Card>
+</CardGroup>

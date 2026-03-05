@@ -1,0 +1,362 @@
+---
+title: Issues
+description: Issue management endpoints
+---
+
+Issues are work items within a project. Each issue has a type, status, priority, and can be assigned to team members.
+
+## Create Issue
+
+Create a new issue in a project.
+
+```
+POST /api/projects/{projectID}/issues
+```
+
+### Path Parameters
+
+<ParamField path="projectID" type="string" required>
+  Project identifier
+</ParamField>
+
+### Request Body
+
+<ParamField body="issue_type_id" type="string" required>
+  Issue type identifier
+</ParamField>
+
+<ParamField body="status_id" type="string" required>
+  Initial status identifier
+</ParamField>
+
+<ParamField body="title" type="string" required>
+  Issue title
+</ParamField>
+
+<ParamField body="description" type="string">
+  Issue description (optional)
+</ParamField>
+
+<ParamField body="priority" type="string">
+  Priority level: `low`, `medium`, `high`, or `critical` (defaults to `medium`)
+</ParamField>
+
+<ParamField body="assignee_id" type="string">
+  User ID to assign the issue to (optional)
+</ParamField>
+
+<ParamField body="reporter_id" type="string" required>
+  User ID of the reporter (creator)
+</ParamField>
+
+<ParamField body="parent_issue_id" type="string">
+  Parent issue identifier for hierarchical relationships (optional)
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Unique issue identifier (UUID)
+</ResponseField>
+
+<ResponseField name="project_id" type="string">
+  Parent project identifier
+</ResponseField>
+
+<ResponseField name="number" type="integer">
+  Sequential issue number within the project
+</ResponseField>
+
+<ResponseField name="issue_type_id" type="string">
+  Issue type identifier
+</ResponseField>
+
+<ResponseField name="status_id" type="string">
+  Current status identifier
+</ResponseField>
+
+<ResponseField name="parent_issue_id" type="string" optional>
+  Parent issue identifier (null if no parent)
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Issue title
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Issue description
+</ResponseField>
+
+<ResponseField name="priority" type="string">
+  Priority level
+</ResponseField>
+
+<ResponseField name="assignee_id" type="string" optional>
+  Assigned user identifier (null if unassigned)
+</ResponseField>
+
+<ResponseField name="reporter_id" type="string">
+  Reporter user identifier
+</ResponseField>
+
+<ResponseField name="due_date" type="string" optional>
+  Due date timestamp (null if not set)
+</ResponseField>
+
+<ResponseField name="status_position" type="integer">
+  Position within the status column (for drag-and-drop ordering)
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  Creation timestamp
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  Last update timestamp
+</ResponseField>
+
+### Example
+
+```bash
+curl -X POST http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000/issues \
+  -H "Content-Type: application/json" \
+  -d '{
+    "issue_type_id": "aa0e8400-e29b-41d4-a716-446655440000",
+    "status_id": "880e8400-e29b-41d4-a716-446655440000",
+    "title": "Add user authentication",
+    "description": "Implement JWT-based authentication for API endpoints",
+    "priority": "high",
+    "assignee_id": "550e8400-e29b-41d4-a716-446655440000",
+    "reporter_id": "770e8400-e29b-41d4-a716-446655440000",
+    "parent_issue_id": ""
+  }'
+```
+
+### Response
+
+```json
+{
+  "status": 201,
+  "data": {
+    "id": "cc0e8400-e29b-41d4-a716-446655440000",
+    "project_id": "660e8400-e29b-41d4-a716-446655440000",
+    "number": 42,
+    "issue_type_id": "aa0e8400-e29b-41d4-a716-446655440000",
+    "status_id": "880e8400-e29b-41d4-a716-446655440000",
+    "parent_issue_id": null,
+    "title": "Add user authentication",
+    "description": "Implement JWT-based authentication for API endpoints",
+    "priority": "high",
+    "assignee_id": "550e8400-e29b-41d4-a716-446655440000",
+    "reporter_id": "770e8400-e29b-41d4-a716-446655440000",
+    "due_date": null,
+    "status_position": 0,
+    "created_at": "2026-03-05T14:30:00Z",
+    "updated_at": "2026-03-05T14:30:00Z"
+  }
+}
+```
+
+### Error Responses
+
+<Expandable title="Validation Error (422)">
+```json
+{
+  "status": 422,
+  "error": "title is required"
+}
+```
+
+Common validation errors:
+- `project_id is required`
+- `issue_type_id is required`
+- `status_id is required`
+- `title is required`
+- `reporter_id is required`
+- `priority must be 'low', 'medium', 'high' or 'critical'`
+</Expandable>
+
+## List Issues
+
+List issues in a project with optional filters.
+
+```
+GET /api/projects/{projectID}/issues
+```
+
+### Path Parameters
+
+<ParamField path="projectID" type="string" required>
+  Project identifier
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="status_id" type="string">
+  Filter by status identifier (optional)
+</ParamField>
+
+<ParamField query="assignee_id" type="string">
+  Filter by assignee identifier (optional)
+</ParamField>
+
+### Example
+
+```bash
+# List all issues
+curl http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000/issues
+
+# Filter by status
+curl "http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000/issues?status_id=880e8400-e29b-41d4-a716-446655440000"
+
+# Filter by assignee
+curl "http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000/issues?assignee_id=550e8400-e29b-41d4-a716-446655440000"
+```
+
+## Get Issue
+
+Retrieve a single issue by ID.
+
+```
+GET /api/projects/{projectID}/issues/{issueID}
+```
+
+### Path Parameters
+
+<ParamField path="projectID" type="string" required>
+  Project identifier
+</ParamField>
+
+<ParamField path="issueID" type="string" required>
+  Issue identifier
+</ParamField>
+
+### Example
+
+```bash
+curl http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000/issues/cc0e8400-e29b-41d4-a716-446655440000
+```
+
+## Update Issue
+
+Update issue properties.
+
+```
+PUT /api/projects/{projectID}/issues/{issueID}
+```
+
+### Path Parameters
+
+<ParamField path="projectID" type="string" required>
+  Project identifier
+</ParamField>
+
+<ParamField path="issueID" type="string" required>
+  Issue identifier
+</ParamField>
+
+### Request Body
+
+<ParamField body="title" type="string" required>
+  Issue title
+</ParamField>
+
+<ParamField body="description" type="string">
+  Issue description
+</ParamField>
+
+<ParamField body="priority" type="string" required>
+  Priority level: `low`, `medium`, `high`, or `critical`
+</ParamField>
+
+<ParamField body="assignee_id" type="string">
+  User ID to assign (can be null to unassign)
+</ParamField>
+
+### Example
+
+```bash
+curl -X PUT http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000/issues/cc0e8400-e29b-41d4-a716-446655440000 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Add user authentication with OAuth",
+    "description": "Implement OAuth-based authentication for API endpoints",
+    "priority": "critical",
+    "assignee_id": "550e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+
+## Move Issue
+
+Move an issue to a different status and position.
+
+```
+POST /api/projects/{projectID}/issues/{issueID}/move
+```
+
+### Path Parameters
+
+<ParamField path="projectID" type="string" required>
+  Project identifier
+</ParamField>
+
+<ParamField path="issueID" type="string" required>
+  Issue identifier
+</ParamField>
+
+### Request Body
+
+<ParamField body="target_status_id" type="string" required>
+  Target status identifier to move the issue to
+</ParamField>
+
+<ParamField body="target_position" type="integer" required>
+  Target position within the status column (0-based)
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Example
+
+```bash
+curl -X POST http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000/issues/cc0e8400-e29b-41d4-a716-446655440000/move \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_status_id": "990e8400-e29b-41d4-a716-446655440000",
+    "target_position": 2
+  }'
+```
+
+<Note>
+  This endpoint is used for drag-and-drop operations on boards. It updates both the status and position within the column.
+</Note>
+
+## Archive Issue
+
+Archive (soft delete) an issue.
+
+```
+DELETE /api/projects/{projectID}/issues/{issueID}
+```
+
+### Path Parameters
+
+<ParamField path="projectID" type="string" required>
+  Project identifier
+</ParamField>
+
+<ParamField path="issueID" type="string" required>
+  Issue identifier
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Example
+
+```bash
+curl -X DELETE http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000/issues/cc0e8400-e29b-41d4-a716-446655440000
+```

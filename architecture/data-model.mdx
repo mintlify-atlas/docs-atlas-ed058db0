@@ -1,0 +1,493 @@
+---
+title: Data Model
+description: Database schema, entities, and relationships in Taskcore
+---
+
+Taskcore uses PostgreSQL with explicit SQL migrations and database-enforced constraints. The schema follows a **Jira-like model** where issues belong to projects, and boards are views over issues.
+
+## Design Principles
+
+<Note>
+  **Issue ownership**: Issues belong to projects, not boards. Boards are views/filters over project issues with customizable columns.
+</Note>
+
+Key design decisions:
+
+- **Issues belong to projects** — `issues.project_id` is the source of truth
+- **Statuses are project-scoped** — Each project defines its own workflow
+- **Boards are filters** — Multiple boards can display the same issues
+- **Hierarchical issues** — Epic → Story → Task → Subtask via `parent_issue_id`
+- **Audit trail** — `issue_events` table tracks all changes
+
+## Core Entities
+
+### Workspace
+
+Top-level container for multi-tenancy.
+
+```sql
+CREATE TABLE workspaces (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  archived_at TIMESTAMPTZ
+);
+```
+
+**Key fields:**
+- `slug` — URL-friendly identifier (e.g., `acme-corp`)
+- `archived_at` — Soft delete timestamp
+
+### User
+
+```sql
+CREATE TABLE app_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  archived_at TIMESTAMPTZ
+);
+```
+
+<Accordion title="Why app_users instead of users?">
+  PostgreSQL reserves `user` as a keyword. `app_users` avoids conflicts and is clearer in queries.
+</Accordion>
+
+### WorkspaceMember
+
+Links users to workspaces with roles.
+
+```sql
+CREATE TABLE workspace_members (
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  archived_at TIMESTAMPTZ,
+  PRIMARY KEY (workspace_id, user_id)
+);
+```
+
+**Roles:**
+- `owner` — Full control, can delete workspace
+- `admin` — Can manage members and settings
+- `member` — Can access workspace resources
+
+### Project
+
+Projects contain issues and define workflows.
+
+```sql
+CREATE TABLE projects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  key TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  archived_at TIMESTAMPTZ,
+  UNIQUE (workspace_id, key),
+  CHECK (char_length(key) BETWEEN 2 AND 10),
+  CHECK (key = UPPER(key))
+);
+```
+
+**Key constraints:**
+- `key` must be 2-10 uppercase characters (e.g., `ENG`, `SALES`)
+- Unique within workspace
+- Used to generate issue identifiers: `ENG-123`
+
+### Status
+
+Workflow states scoped to a project.
+
+```sql
+CREATE TABLE statuses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL CHECK (category IN ('todo', 'doing', 'done')),
+  position INT NOT NULL CHECK (position >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  archived_at TIMESTAMPTZ,
+  UNIQUE (project_id, name),
+  UNIQUE (project_id, position)
+);
+
+CREATE INDEX idx_statuses_project_position
+  ON statuses (project_id, position);
+```
+
+**Categories:**
+- `todo` — Work not started
+- `doing` — Work in progress
+- `done` — Completed work
+
+<Note>
+  The `category` field enables grouping statuses in board columns. For example, "Ready for Dev" and "Backlog" both have category `todo`.
+</Note>
+
+### IssueType
+
+Defines issue hierarchy levels (Epic, Story, Task, etc.)
+
+```sql
+CREATE TABLE issue_types (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  icon TEXT,
+  level INT NOT NULL CHECK (level >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  archived_at TIMESTAMPTZ,
+  UNIQUE (project_id, name)
+);
+```
+
+**Level hierarchy:**
+- `0` — Epic (highest level)
+- `1` — Story
+- `2` — Task
+- `3` — Subtask
+
+Child issues must have a higher level than their parent.
+
+## Issue Tracking
+
+### Issue
+
+The core entity for tracking work.
+
+```sql
+CREATE TABLE issues (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  number INT NOT NULL CHECK (number > 0),
+  issue_type_id UUID NOT NULL REFERENCES issue_types(id),
+  status_id UUID NOT NULL REFERENCES statuses(id),
+  parent_issue_id UUID REFERENCES issues(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'critical')),
+  assignee_id UUID REFERENCES app_users(id) ON DELETE SET NULL,
+  reporter_id UUID NOT NULL REFERENCES app_users(id),
+  due_date DATE,
+  status_position INT NOT NULL DEFAULT 0 CHECK (status_position >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  archived_at TIMESTAMPTZ,
+  UNIQUE (project_id, number)
+);
+```
+
+**Important fields:**
+
+- `number` — Sequential per project (e.g., 1, 2, 3...)
+- `status_position` — Position within the status column (for drag-and-drop)
+- `parent_issue_id` — Creates issue hierarchy (Epic → Story → Task)
+
+**Public identifier format:** `{PROJECT_KEY}-{NUMBER}` (e.g., `ENG-42`)
+
+### Issue Number Generation
+
+Sequential numbering is guaranteed via a counter table:
+
+```sql
+CREATE TABLE project_issue_counters (
+  project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+  last_number INT NOT NULL CHECK (last_number >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+When creating an issue:
+
+```sql
+INSERT INTO project_issue_counters (project_id, last_number)
+VALUES ($1, 1)
+ON CONFLICT (project_id)
+DO UPDATE SET last_number = project_issue_counters.last_number + 1
+RETURNING last_number;
+```
+
+<Accordion title="Why not use MAX(number) + 1?">
+  Using `MAX(number) + 1` can create race conditions with concurrent inserts. A dedicated counter table with `ON CONFLICT` provides atomic, gap-free numbering within a transaction.
+</Accordion>
+
+### Issue Positioning
+
+Issues maintain their position within a status:
+
+```sql
+CREATE INDEX idx_issues_project_status_position
+  ON issues (project_id, status_id, status_position);
+
+CREATE UNIQUE INDEX uq_issues_active_status_position
+  ON issues (project_id, status_id, status_position)
+  WHERE archived_at IS NULL;
+```
+
+The partial unique index ensures no two active issues share the same position in a status.
+
+## Board Views
+
+### Board
+
+A configured view over project issues.
+
+```sql
+CREATE TABLE boards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('kanban', 'scrum')),
+  filter_query TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  archived_at TIMESTAMPTZ,
+  UNIQUE (project_id, name)
+);
+```
+
+**Board types:**
+- `kanban` — Continuous flow board
+- `scrum` — Sprint-based board
+
+**Filter query:** Future feature for filtering issues (e.g., `assignee:me priority:high`)
+
+### BoardColumn
+
+Columns on a board.
+
+```sql
+CREATE TABLE board_columns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  board_id UUID NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  position INT NOT NULL CHECK (position >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  archived_at TIMESTAMPTZ,
+  UNIQUE (board_id, name),
+  UNIQUE (board_id, position)
+);
+```
+
+### BoardColumnStatus
+
+Maps statuses to board columns.
+
+```sql
+CREATE TABLE board_column_statuses (
+  board_column_id UUID NOT NULL REFERENCES board_columns(id) ON DELETE CASCADE,
+  status_id UUID NOT NULL REFERENCES statuses(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (board_column_id, status_id)
+);
+```
+
+<Note>
+  One board column can contain multiple statuses. For example, a "To Do" column might include both "Backlog" and "Ready" statuses.
+</Note>
+
+## Audit and Events
+
+### IssueEvent
+
+Tracks all changes to issues.
+
+```sql
+CREATE TABLE issue_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  issue_id UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+  actor_id UUID NOT NULL REFERENCES app_users(id),
+  event_type TEXT NOT NULL CHECK (event_type IN ('created', 'updated', 'moved', 'commented')),
+  payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_issue_events_issue_created_at 
+  ON issue_events (issue_id, created_at DESC);
+```
+
+**Event types:**
+- `created` — Issue created
+- `updated` — Fields changed
+- `moved` — Status or position changed
+- `commented` — Comment added (future)
+
+**Payload format:**
+
+```json
+{
+  "changed_fields": {
+    "status_id": {"from": "uuid-old", "to": "uuid-new"},
+    "assignee_id": {"from": null, "to": "uuid-user"}
+  }
+}
+```
+
+## Database Constraints
+
+### Integrity Triggers
+
+PostgreSQL triggers enforce business rules:
+
+**Issue integrity validation:**
+
+```sql
+CREATE TRIGGER trg_validate_issue_integrity
+BEFORE INSERT OR UPDATE ON issues
+FOR EACH ROW EXECUTE FUNCTION validate_issue_integrity();
+```
+
+This trigger ensures:
+
+1. `issue_type_id` belongs to the same project
+2. `status_id` belongs to the same project
+3. `parent_issue_id` belongs to the same project
+4. Child issue level > parent issue level
+5. No cycles in the parent hierarchy
+
+**Board column status validation:**
+
+```sql
+CREATE TRIGGER trg_validate_board_column_status_project
+BEFORE INSERT OR UPDATE ON board_column_statuses
+FOR EACH ROW EXECUTE FUNCTION validate_board_column_status_project();
+```
+
+Ensures board columns and statuses belong to the same project.
+
+### Auto-Updated Timestamps
+
+All tables have `updated_at` automatically maintained:
+
+```sql
+CREATE TRIGGER trg_set_updated_at_issues
+BEFORE UPDATE ON issues
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+```
+
+## Indexes
+
+Performance indexes for common queries:
+
+```sql
+-- Status ordering
+CREATE INDEX idx_statuses_project_position
+  ON statuses (project_id, position);
+
+-- Issue listing and positioning
+CREATE INDEX idx_issues_project_status_position
+  ON issues (project_id, status_id, status_position);
+
+-- Issue assignment queries
+CREATE INDEX idx_issues_assignee 
+  ON issues (assignee_id);
+
+-- Issue hierarchy traversal
+CREATE INDEX idx_issues_parent_issue 
+  ON issues (parent_issue_id);
+
+-- Board column ordering
+CREATE INDEX idx_board_columns_board_position 
+  ON board_columns (board_id, position);
+
+-- Issue event history
+CREATE INDEX idx_issue_events_issue_created_at 
+  ON issue_events (issue_id, created_at DESC);
+```
+
+## Soft Deletes
+
+Most entities use soft deletes via `archived_at`:
+
+```go
+// Archive instead of delete
+UPDATE issues 
+SET archived_at = NOW() 
+WHERE id = $1 AND project_id = $2;
+```
+
+**Benefits:**
+- Preserve audit trail
+- Enable "undelete" functionality
+- Maintain referential integrity
+
+**Query pattern:**
+
+```sql
+-- Always filter out archived records
+SELECT * FROM issues 
+WHERE project_id = $1 
+  AND archived_at IS NULL
+ORDER BY status_position;
+```
+
+## Relationship Diagram
+
+```
+Workspace
+  ├─ WorkspaceMember → User
+  └─ Project
+       ├─ ProjectMember → User
+       ├─ Status
+       ├─ IssueType
+       ├─ Board
+       │    └─ BoardColumn
+       │         └─ BoardColumnStatus → Status
+       └─ Issue
+            ├─ IssueType
+            ├─ Status
+            ├─ parent_issue (self-reference)
+            ├─ assignee → User
+            ├─ reporter → User
+            └─ IssueEvent → User (actor)
+```
+
+## Migration Strategy
+
+All schema changes go through versioned migrations:
+
+```bash
+# Apply migrations
+migrate -path migrations -database "$DATABASE_URL" up
+
+# Rollback last migration
+migrate -path migrations -database "$DATABASE_URL" down 1
+```
+
+Migration files:
+
+```
+migrations/
+  0001_init.up.sql
+  0001_init.down.sql
+  0002_add_comments.up.sql
+  0002_add_comments.down.sql
+```
+
+<Note>
+  Never modify existing migrations after they're applied to production. Always create new migrations for schema changes.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Backend Architecture" icon="server" href="/architecture/backend">
+    Learn how Go code interacts with this schema
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Explore the REST API endpoints
+  </Card>
+</CardGroup>

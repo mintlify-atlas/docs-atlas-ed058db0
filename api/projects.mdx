@@ -1,0 +1,253 @@
+---
+title: Projects
+description: Project management endpoints
+---
+
+Projects organize work within a workspace. Each project has its own statuses, issue types, boards, and issues.
+
+## Create Project
+
+Create a new project in a workspace.
+
+```
+POST /api/workspaces/{workspaceID}/projects
+```
+
+### Path Parameters
+
+<ParamField path="workspaceID" type="string" required>
+  Workspace identifier
+</ParamField>
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Project name
+</ParamField>
+
+<ParamField body="key" type="string" required>
+  Project key: 2-10 uppercase letters (A-Z). Used as prefix for issue identifiers (e.g., "TASK-123").
+</ParamField>
+
+<ParamField body="description" type="string">
+  Project description (optional)
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Unique project identifier (UUID)
+</ResponseField>
+
+<ResponseField name="workspace_id" type="string">
+  Parent workspace identifier
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Project name
+</ResponseField>
+
+<ResponseField name="key" type="string">
+  Project key
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Project description
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  Creation timestamp
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  Last update timestamp
+</ResponseField>
+
+### Example
+
+```bash
+curl -X POST http://localhost:8080/api/workspaces/550e8400-e29b-41d4-a716-446655440000/projects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Website Redesign",
+    "key": "WEB",
+    "description": "Q2 website redesign project"
+  }'
+```
+
+### Response
+
+```json
+{
+  "status": 201,
+  "data": {
+    "id": "660e8400-e29b-41d4-a716-446655440000",
+    "workspace_id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Website Redesign",
+    "key": "WEB",
+    "description": "Q2 website redesign project",
+    "created_at": "2026-03-05T14:30:00Z",
+    "updated_at": "2026-03-05T14:30:00Z"
+  }
+}
+```
+
+### Error Responses
+
+<Expandable title="Duplicate Key (409)">
+```json
+{
+  "status": 409,
+  "error": "project key already exists in workspace"
+}
+```
+</Expandable>
+
+<Expandable title="Validation Error (422)">
+```json
+{
+  "status": 422,
+  "error": "key must be 2-10 uppercase letters (A-Z)"
+}
+```
+</Expandable>
+
+## List Projects
+
+List all projects in a workspace.
+
+```
+GET /api/workspaces/{workspaceID}/projects
+```
+
+### Path Parameters
+
+<ParamField path="workspaceID" type="string" required>
+  Workspace identifier
+</ParamField>
+
+### Example
+
+```bash
+curl http://localhost:8080/api/workspaces/550e8400-e29b-41d4-a716-446655440000/projects
+```
+
+## Get Project
+
+Retrieve a project by ID.
+
+```
+GET /api/projects/{projectID}
+```
+
+### Path Parameters
+
+<ParamField path="projectID" type="string" required>
+  Project identifier
+</ParamField>
+
+### Example
+
+```bash
+curl http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000
+```
+
+## Archive Project
+
+Archive (soft delete) a project.
+
+```
+DELETE /api/projects/{projectID}
+```
+
+### Path Parameters
+
+<ParamField path="projectID" type="string" required>
+  Project identifier
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Example
+
+```bash
+curl -X DELETE http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000
+```
+
+## Member Management
+
+### List Members
+
+List all members in a project.
+
+```
+GET /api/projects/{projectID}/members
+```
+
+### Add Member
+
+Add a user to a project with a specific role.
+
+```
+POST /api/projects/{projectID}/members
+```
+
+<ParamField body="user_id" type="string" required>
+  User identifier to add
+</ParamField>
+
+<ParamField body="role" type="string" required>
+  Member role: `admin`, `member`, or `viewer`
+</ParamField>
+
+#### Example
+
+```bash
+curl -X POST http://localhost:8080/api/projects/660e8400-e29b-41d4-a716-446655440000/members \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "770e8400-e29b-41d4-a716-446655440000",
+    "role": "member"
+  }'
+```
+
+#### Response
+
+```json
+{
+  "status": 201,
+  "data": {
+    "project_id": "660e8400-e29b-41d4-a716-446655440000",
+    "user_id": "770e8400-e29b-41d4-a716-446655440000",
+    "role": "member",
+    "created_at": "2026-03-05T14:30:00Z",
+    "updated_at": "2026-03-05T14:30:00Z"
+  }
+}
+```
+
+### Update Member Role
+
+Update a member's role.
+
+```
+PUT /api/projects/{projectID}/members/{userID}
+```
+
+<ParamField body="role" type="string" required>
+  New role: `admin`, `member`, or `viewer`
+</ParamField>
+
+### Remove Member
+
+Remove a member from a project.
+
+```
+DELETE /api/projects/{projectID}/members/{userID}
+```
+
+<Note>
+  Returns `204 No Content` on success.
+</Note>

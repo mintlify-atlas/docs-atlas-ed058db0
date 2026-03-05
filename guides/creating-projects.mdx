@@ -1,0 +1,204 @@
+---
+title: Creating Projects
+description: Learn how to create and configure new projects in Taskcore
+icon: folder-plus
+---
+
+Projects are the foundation of your work in Taskcore. Each project represents a distinct area of work with its own team, boards, and issues.
+
+## What is a Project?
+
+A project in Taskcore is a container for related work items. Every project has:
+
+- A **unique key** (2-10 uppercase letters) used to identify issues
+- A **name** and **description**
+- Its own **team members** with specific roles
+- Custom **statuses** and **workflows**
+- Multiple **boards** for visualizing work
+
+<Note>
+For example, a project with key "ENG" will have issues numbered ENG-1, ENG-2, etc.
+</Note>
+
+## Creating Your First Project
+
+<Steps>
+  <Step title="Navigate to Projects">
+    From your workspace dashboard, click the **Projects** menu or the **Create Project** button in the sidebar.
+  </Step>
+
+  <Step title="Fill in Project Details">
+    Enter the required information:
+    
+    - **Project Name**: A descriptive name like "Engineering" or "Marketing Campaign"
+    - **Project Key**: A short, unique identifier (2-10 uppercase letters)
+    - **Description**: Optional details about the project's purpose
+
+    <Tip>
+    Choose your project key carefully! It becomes part of every issue ID and cannot be changed later. Common patterns:
+    - **ENG** - Engineering
+    - **MKT** - Marketing
+    - **SUP** - Support
+    - **OPS** - Operations
+    </Tip>
+  </Step>
+
+  <Step title="Configure Default Settings">
+    Taskcore automatically creates:
+    
+    - Three default statuses: **To Do**, **In Progress**, **Done**
+    - A default issue type for tasks
+    - An initial Kanban board
+
+    You can customize these later in project settings.
+  </Step>
+
+  <Step title="Save and Start Working">
+    Click **Create Project** to finish. You'll be taken to your new project's board where you can start creating issues.
+  </Step>
+</Steps>
+
+## Project Key Requirements
+
+Your project key must meet these criteria:
+
+- **Length**: 2 to 10 characters
+- **Characters**: Only uppercase letters (A-Z)
+- **Uniqueness**: Must be unique within your workspace
+
+<Card title="Valid Examples" icon="check">
+- ENG
+- MKTG
+- SUPPORT
+- OPS
+- DESIGN
+</Card>
+
+<Card title="Invalid Examples" icon="x">
+- eng (lowercase)
+- ENG-2024 (contains numbers/symbols)
+- E (too short)
+- ENGINEERING2024 (too long)
+</Card>
+
+## Managing Project Settings
+
+After creating a project, you can configure additional settings:
+
+### Basic Information
+
+1. Navigate to **Project Settings** from the project sidebar
+2. Update the project name or description
+3. Changes are saved automatically
+
+<Note>
+The project key cannot be changed after creation to maintain issue ID consistency.
+</Note>
+
+### Archiving Projects
+
+When a project is complete:
+
+1. Go to **Project Settings** > **Advanced**
+2. Click **Archive Project**
+3. Confirm the action
+
+Archived projects:
+- Are hidden from your main project list
+- Preserve all data and history
+- Can be restored later if needed
+- Don't count toward your active project limit
+
+## Project Examples by Team
+
+<Tabs>
+  <Tab title="Engineering Team">
+    **Project Name**: Engineering
+    
+    **Key**: ENG
+    
+    **Description**: Software development, bug fixes, and technical improvements
+    
+    **Use Cases**:
+    - Track feature development
+    - Manage bug fixes
+    - Plan technical debt work
+  </Tab>
+
+  <Tab title="Marketing Team">
+    **Project Name**: Marketing Campaigns
+    
+    **Key**: MKT
+    
+    **Description**: Marketing initiatives, campaigns, and content creation
+    
+    **Use Cases**:
+    - Plan campaign launches
+    - Coordinate content calendars
+    - Track design requests
+  </Tab>
+
+  <Tab title="Support Team">
+    **Project Name**: Customer Support
+    
+    **Key**: SUP
+    
+    **Description**: Customer issues, feature requests, and support tickets
+    
+    **Use Cases**:
+    - Manage support tickets
+    - Track feature requests
+    - Coordinate customer escalations
+  </Tab>
+
+  <Tab title="Operations Team">
+    **Project Name**: Operations
+    
+    **Key**: OPS
+    
+    **Description**: Business operations, process improvements, and infrastructure
+    
+    **Use Cases**:
+    - Plan operational improvements
+    - Track infrastructure work
+    - Manage vendor relationships
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Add Team Members" icon="users" href="/guides/team-collaboration">
+    Invite your team and assign roles
+  </Card>
+  
+  <Card title="Configure Boards" icon="columns" href="/guides/configuring-boards">
+    Set up Kanban or Scrum boards
+  </Card>
+  
+  <Card title="Create Issues" icon="list-check" href="/guides/managing-issues">
+    Start tracking work items
+  </Card>
+  
+  <Card title="Design Workflows" icon="diagram-project" href="/guides/workflows">
+    Customize statuses and transitions
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<Tip>
+**Start Small**: Begin with the default settings and customize as your team's needs become clearer.
+</Tip>
+
+<Tip>
+**Consistent Naming**: Use a consistent pattern for project keys across your organization (e.g., team-based or department-based).
+</Tip>
+
+<Tip>
+**Clear Descriptions**: Write descriptions that help new team members understand the project's purpose at a glance.
+</Tip>
+
+<Tip>
+**One Project Per Initiative**: Create separate projects for distinct areas of work rather than grouping everything together.
+</Tip>

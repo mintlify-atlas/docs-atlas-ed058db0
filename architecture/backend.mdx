@@ -1,0 +1,674 @@
+---
+title: Backend Architecture
+description: Go backend structure, domain packages, SQL patterns, and conventions
+---
+
+Taskcore's backend is written in Go with a focus on simplicity, explicitness, and idiomatic patterns. The architecture follows domain-driven design principles without traditional OOP patterns.
+
+## Go Conventions
+
+<Note>
+  **Core principle**: Go is not an OOP language. We avoid Java/Spring patterns (Repository, Service, Manager) in favor of functional programming with packages as namespaces.
+</Note>
+
+### Package Organization
+
+Each domain lives in a flat package under `internal/`:
+
+```
+internal/
+  issues/
+    issues.go                 # Domain types, errors, public API
+    store.go                  # SQL queries (private)
+    handler.go                # HTTP handlers
+    issues_test.go            # Unit tests
+    store_integration_test.go # Integration tests
+  projects/
+    projects.go
+    store.go
+    handler.go
+    projects_test.go
+    store_integration_test.go
+  boards/
+    ...
+```
+
+**Rules:**
+
+- One package per domain (not per technical layer)
+- No subdirectories within a domain (`internal/issues/repository/` is wrong)
+- No global `store` or `service` packages
+- Domain and persistence coexist in the same package
+
+### File Responsibilities
+
+#### `<domain>.go` — Public API
+
+Contains:
+
+- Domain types (structs, interfaces)
+- Domain errors
+- Validation logic
+- Public functions
+
+```go
+// internal/issues/issues.go
+package issues
+
+import (
+    "context"
+    "errors"
+    "time"
+    "github.com/jmoiron/sqlx"
+)
+
+// Errors
+var (
+    ErrIssueNotFound   = errors.New("issue not found")
+    ErrInvalidPriority = errors.New("priority must be 'low', 'medium', 'high' or 'critical'")
+)
+
+// Domain type
+type Issue struct {
+    ID             string     `db:"id"              json:"id"`
+    ProjectID      string     `db:"project_id"      json:"project_id"`
+    Number         int        `db:"number"          json:"number"`
+    Title          string     `db:"title"           json:"title"`
+    Description    string     `db:"description"     json:"description"`
+    Priority       string     `db:"priority"        json:"priority"`
+    StatusPosition int        `db:"status_position" json:"status_position"`
+    CreatedAt      time.Time  `db:"created_at"      json:"created_at"`
+}
+
+// Parameter type
+type CreateIssueParams struct {
+    ProjectID   string
+    IssueTypeID string
+    StatusID    string
+    Title       string
+    Description string
+    Priority    string
+    ReporterID  string
+}
+
+// Validation
+func (params CreateIssueParams) Validate() error {
+    if params.ProjectID == "" {
+        return errors.New("project_id is required")
+    }
+    if params.Title == "" {
+        return errors.New("title is required")
+    }
+    return nil
+}
+
+// Public function
+func CreateIssue(ctx context.Context, db *sqlx.DB, params CreateIssueParams) (Issue, error) {
+    if db == nil {
+        return Issue{}, errors.New("db is required")
+    }
+    if err := params.Validate(); err != nil {
+        return Issue{}, err
+    }
+    return createIssue(ctx, db, params) // calls private SQL function
+}
+```
+
+#### `store.go` — Private SQL
+
+Contains:
+
+- SQL query strings
+- Private database functions
+- Internal mapping types
+
+```go
+// internal/issues/store.go
+package issues
+
+import (
+    "context"
+    "database/sql"
+    "github.com/jmoiron/sqlx"
+)
+
+// Private function (lowercase)
+func createIssue(ctx context.Context, db *sqlx.DB, params CreateIssueParams) (Issue, error) {
+    // Get next issue number
+    var number int
+    err := db.GetContext(ctx, &number, `
+        INSERT INTO project_issue_counters (project_id, last_number)
+        VALUES ($1, 1)
+        ON CONFLICT (project_id)
+        DO UPDATE SET last_number = project_issue_counters.last_number + 1
+        RETURNING last_number
+    `, params.ProjectID)
+    if err != nil {
+        return Issue{}, err
+    }
+
+    // Insert issue
+    var issue Issue
+    err = db.GetContext(ctx, &issue, `
+        INSERT INTO issues (
+            project_id, number, issue_type_id, status_id,
+            title, description, priority, reporter_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+    `,
+        params.ProjectID, number, params.IssueTypeID, params.StatusID,
+        params.Title, params.Description, params.Priority, params.ReporterID,
+    )
+    return issue, err
+}
+
+func getIssue(ctx context.Context, db *sqlx.DB, projectID, issueID string) (Issue, error) {
+    var issue Issue
+    err := db.GetContext(ctx, &issue, `
+        SELECT * FROM issues
+        WHERE id = $1 AND project_id = $2 AND archived_at IS NULL
+    `, issueID, projectID)
+    if err == sql.ErrNoRows {
+        return Issue{}, ErrIssueNotFound
+    }
+    return issue, err
+}
+```
+
+<Accordion title="Why separate files instead of visibility?">
+  Splitting domain logic (`issues.go`) and SQL (`store.go`) improves code organization and makes it easier to understand the package structure at a glance. Both files are part of the same package, so they share private visibility.
+</Accordion>
+
+#### `handler.go` — HTTP Layer
+
+Contains:
+
+- Route registration
+- Request parsing
+- Response writing
+- HTTP status code mapping
+
+```go
+// internal/issues/handler.go
+package issues
+
+import (
+    "errors"
+    "log/slog"
+    "net/http"
+    "github.com/jmoiron/sqlx"
+    "github.com/start-codex/taskcode/internal/respond"
+)
+
+// Register all issue routes
+func RegisterRoutes(mux *http.ServeMux, db *sqlx.DB) {
+    mux.HandleFunc("POST /projects/{projectID}/issues", handleCreate(db))
+    mux.HandleFunc("GET /projects/{projectID}/issues", handleList(db))
+    mux.HandleFunc("GET /projects/{projectID}/issues/{issueID}", handleGet(db))
+    mux.HandleFunc("PUT /projects/{projectID}/issues/{issueID}", handleUpdate(db))
+    mux.HandleFunc("DELETE /projects/{projectID}/issues/{issueID}", handleArchive(db))
+    mux.HandleFunc("POST /projects/{projectID}/issues/{issueID}/move", handleMove(db))
+}
+
+// Map domain errors to HTTP status codes
+func fail(w http.ResponseWriter, err error) {
+    switch {
+    case errors.Is(err, ErrIssueNotFound):
+        respond.Error(w, http.StatusNotFound, err.Error())
+    case errors.Is(err, ErrInvalidPriority):
+        respond.Error(w, http.StatusUnprocessableEntity, err.Error())
+    default:
+        slog.Error("issues handler error", "error", err)
+        respond.Error(w, http.StatusInternalServerError, "internal server error")
+    }
+}
+
+// Handler closure pattern
+func handleCreate(db *sqlx.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        // 1. Parse request
+        var body struct {
+            IssueTypeID string `json:"issue_type_id"`
+            StatusID    string `json:"status_id"`
+            Title       string `json:"title"`
+            Description string `json:"description"`
+            Priority    string `json:"priority"`
+            ReporterID  string `json:"reporter_id"`
+        }
+        if err := respond.Decode(r, &body); err != nil {
+            respond.Error(w, http.StatusBadRequest, "invalid JSON")
+            return
+        }
+        
+        // 2. Build params from body + path
+        params := CreateIssueParams{
+            ProjectID:   r.PathValue("projectID"),
+            IssueTypeID: body.IssueTypeID,
+            StatusID:    body.StatusID,
+            Title:       body.Title,
+            Description: body.Description,
+            Priority:    body.Priority,
+            ReporterID:  body.ReporterID,
+        }
+        
+        // 3. Validate
+        if err := params.Validate(); err != nil {
+            respond.Error(w, http.StatusUnprocessableEntity, err.Error())
+            return
+        }
+        
+        // 4. Call domain function
+        issue, err := CreateIssue(r.Context(), db, params)
+        if err != nil {
+            fail(w, err)
+            return
+        }
+        
+        // 5. Write response
+        respond.JSON(w, http.StatusCreated, issue)
+    }
+}
+```
+
+**Handler pattern:**
+
+1. Parse request body and path parameters
+2. Validate input
+3. Call domain function
+4. Map errors to HTTP status codes
+5. Write JSON response
+
+<Note>
+  Handlers should be thin. All business logic belongs in domain functions, not handlers.
+</Note>
+
+## Functions vs Structs
+
+Taskcore prefers **functions with explicit dependencies** over struct methods:
+
+```go
+// ✅ Recommended: Function with explicit dependencies
+func MoveIssue(ctx context.Context, db *sqlx.DB, params MoveIssueParams) error {
+    return moveIssue(ctx, db, params)
+}
+
+// ❌ Avoid: Struct holding database connection
+type Store struct {
+    db *sqlx.DB
+}
+
+func NewStore(db *sqlx.DB) *Store {
+    return &Store{db: db}
+}
+
+func (s *Store) MoveIssue(ctx context.Context, params MoveIssueParams) error {
+    return moveIssue(ctx, s.db, params)
+}
+```
+
+**Why functions?**
+
+- Dependencies are explicit in the signature
+- Easier to test (no mock setup needed)
+- No hidden state
+- More idiomatic Go
+
+**When to use structs?**
+
+Use structs when you need:
+
+- Mutable state across operations
+- Multiple dependencies configured once
+- Method polymorphism (rare)
+
+Example: HTTP server with multiple dependencies
+
+```go
+type Server struct {
+    db     *sqlx.DB
+    logger *slog.Logger
+    config Config
+}
+
+func (s *Server) Start() error {
+    // Uses all dependencies
+}
+```
+
+## Naming Conventions
+
+| Pattern to Avoid | Idiomatic Go |
+|------------------|-------------|
+| `NewIssueRepository(db)` | `issues.CreateIssue(ctx, db, params)` |
+| `type IssueRepository struct` | Functions in `issues` package |
+| `type IssueService struct` | Functions in `issues` package |
+| `IssueManager`, `IssueHandler` | Descriptive function names |
+
+**Constructor naming:**
+
+- If a struct is needed, the constructor is called `New` (not `NewIssue`)
+- Package name provides context: `issues.New()` is clear
+
+## SQL Patterns
+
+### No ORM
+
+Taskcore uses explicit SQL with `sqlx` for scanning:
+
+**Rationale:**
+
+- Full control over query performance
+- No hidden N+1 queries
+- PostgreSQL-specific features (CTEs, window functions)
+- Easier to optimize with `EXPLAIN`
+- Simpler debugging
+
+### Query Organization
+
+All SQL queries live in `store.go` files:
+
+```go
+// Multi-line queries for readability
+func listIssues(ctx context.Context, db *sqlx.DB, params ListIssuesParams) ([]Issue, error) {
+    query := `
+        SELECT *
+        FROM issues
+        WHERE project_id = $1
+          AND archived_at IS NULL
+    `
+    args := []interface{}{params.ProjectID}
+    
+    if params.StatusID != "" {
+        query += " AND status_id = $2"
+        args = append(args, params.StatusID)
+    }
+    
+    query += " ORDER BY status_position ASC"
+    
+    var issues []Issue
+    err := db.SelectContext(ctx, &issues, query, args...)
+    return issues, err
+}
+```
+
+### Transaction Pattern
+
+For operations requiring multiple queries:
+
+```go
+func moveIssue(ctx context.Context, db *sqlx.DB, params MoveIssueParams) error {
+    tx, err := db.BeginTxx(ctx, nil)
+    if err != nil {
+        return err
+    }
+    defer tx.Rollback()
+    
+    // Get current issue
+    var issue Issue
+    err = tx.GetContext(ctx, &issue, `
+        SELECT * FROM issues
+        WHERE id = $1 AND project_id = $2
+        FOR UPDATE
+    `, params.IssueID, params.ProjectID)
+    if err != nil {
+        return err
+    }
+    
+    // Shift issues at target position
+    _, err = tx.ExecContext(ctx, `
+        UPDATE issues
+        SET status_position = status_position + 1
+        WHERE project_id = $1
+          AND status_id = $2
+          AND status_position >= $3
+    `, params.ProjectID, params.TargetStatusID, params.TargetPosition)
+    if err != nil {
+        return err
+    }
+    
+    // Move issue to target
+    _, err = tx.ExecContext(ctx, `
+        UPDATE issues
+        SET status_id = $1, status_position = $2
+        WHERE id = $3
+    `, params.TargetStatusID, params.TargetPosition, params.IssueID)
+    if err != nil {
+        return err
+    }
+    
+    return tx.Commit()
+}
+```
+
+<Note>
+  Always use `defer tx.Rollback()` after `BeginTxx`. It's safe to call on committed transactions and ensures cleanup on errors.
+</Note>
+
+## Error Handling
+
+### Domain Errors
+
+Define sentinel errors in domain packages:
+
+```go
+var (
+    ErrIssueNotFound   = errors.New("issue not found")
+    ErrInvalidPriority = errors.New("priority must be 'low', 'medium', 'high' or 'critical'")
+)
+```
+
+### Error Wrapping
+
+Wrap errors with context:
+
+```go
+if err != nil {
+    return fmt.Errorf("create issue: %w", err)
+}
+```
+
+### SQL Error Mapping
+
+Map SQL errors to domain errors:
+
+```go
+if err == sql.ErrNoRows {
+    return Issue{}, ErrIssueNotFound
+}
+```
+
+## Testing
+
+### Unit Tests
+
+Test validation and business logic without database:
+
+```go
+// internal/issues/issues_test.go
+func TestCreateIssueParams_Validate(t *testing.T) {
+    tests := []struct {
+        name    string
+        params  CreateIssueParams
+        wantErr bool
+    {
+        {
+            name: "valid params",
+            params: CreateIssueParams{
+                ProjectID:   "project-id",
+                IssueTypeID: "type-id",
+                StatusID:    "status-id",
+                Title:       "Fix bug",
+                ReporterID:  "user-id",
+            },
+            wantErr: false,
+        },
+        {
+            name: "missing title",
+            params: CreateIssueParams{
+                ProjectID:  "project-id",
+                StatusID:   "status-id",
+                ReporterID: "user-id",
+            },
+            wantErr: true,
+        },
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            err := tt.params.Validate()
+            if (err != nil) != tt.wantErr {
+                t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+            }
+        })
+    }
+}
+```
+
+### Integration Tests
+
+Test database operations against real PostgreSQL:
+
+```go
+// internal/issues/store_integration_test.go
+func TestCreateIssue(t *testing.T) {
+    dsn := os.Getenv("TASKCORE_TEST_DSN")
+    if dsn == "" {
+        t.Skip("TASKCORE_TEST_DSN not set")
+    }
+    
+    db, err := sqlx.Open("postgres", dsn)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer db.Close()
+    
+    // Run migrations
+    ensureSchema(t, db)
+    
+    tests := []struct {
+        name    string
+        arrange func(*testing.T, *sqlx.DB) CreateIssueParams
+        wantErr error
+    }{
+        {
+            name: "creates issue with sequential number",
+            arrange: func(t *testing.T, db *sqlx.DB) CreateIssueParams {
+                seed := seedProject(t, db)
+                return CreateIssueParams{
+                    ProjectID:   seed.ProjectID,
+                    IssueTypeID: seed.IssueTypeID,
+                    StatusID:    seed.StatusID,
+                    Title:       "Test issue",
+                    ReporterID:  seed.UserID,
+                }
+            },
+        },
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            params := tt.arrange(t, db)
+            issue, err := CreateIssue(context.Background(), db, params)
+            if !errors.Is(err, tt.wantErr) {
+                t.Fatalf("CreateIssue() error = %v, wantErr = %v", err, tt.wantErr)
+            }
+            if err == nil && issue.Number != 1 {
+                t.Errorf("expected issue number 1, got %d", issue.Number)
+            }
+        })
+    }
+}
+```
+
+<Accordion title="Why test against real PostgreSQL?">
+  In-memory databases like SQLite don't support PostgreSQL-specific features (triggers, CTEs, constraints). Testing against the real database catches subtle bugs and ensures triggers work correctly.
+</Accordion>
+
+## HTTP Server Setup
+
+The main entry point wires everything together:
+
+```go
+// cmd/server/main.go
+func main() {
+    // 1. Open database
+    db, err := sqlx.Open("postgres", os.Getenv("DATABASE_URL"))
+    if err != nil {
+        slog.Error("failed to open database", "error", err)
+        os.Exit(1)
+    }
+    defer db.Close()
+    
+    // 2. Run migrations
+    if err := migrations.Up(ctx, db.DB); err != nil {
+        slog.Error("failed to run migrations", "error", err)
+        os.Exit(1)
+    }
+    
+    // 3. Register routes
+    api := http.NewServeMux()
+    users.RegisterRoutes(api, db)
+    workspaces.RegisterRoutes(api, db)
+    projects.RegisterRoutes(api, db)
+    issues.RegisterRoutes(api, db)
+    boards.RegisterRoutes(api, db)
+    
+    // 4. Mount API under /api
+    mux := http.NewServeMux()
+    mux.Handle("/api/", http.StripPrefix("/api", api))
+    
+    // 5. Add middleware
+    handler := withRecover(withLogger(withRequestID(mux)))
+    
+    // 6. Start server
+    srv := &http.Server{
+        Addr:    ":8080",
+        Handler: handler,
+    }
+    srv.ListenAndServe()
+}
+```
+
+## Middleware Pattern
+
+Middleware wraps handlers with cross-cutting concerns:
+
+```go
+// Middleware signature
+type Middleware func(http.Handler) http.Handler
+
+// Request ID middleware
+func withRequestID(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        id := generateRequestID()
+        w.Header().Set("X-Request-ID", id)
+        next.ServeHTTP(w, r)
+    })
+}
+
+// Logging middleware
+func withLogger(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+        next.ServeHTTP(sw, r)
+        slog.Info("request",
+            "method", r.Method,
+            "path", r.URL.Path,
+            "status", sw.status,
+            "duration_ms", time.Since(start).Milliseconds(),
+        )
+    })
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Frontend Architecture" icon="window" href="/architecture/frontend">
+    Explore the SvelteKit frontend
+  </Card>
+  <Card title="Contributing Guide" icon="code" href="/contributing">
+    Start contributing to Taskcore
+  </Card>
+</CardGroup>

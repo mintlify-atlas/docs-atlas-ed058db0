@@ -1,0 +1,625 @@
+---
+title: Frontend Architecture
+description: SvelteKit setup, component structure, API integration, and UI patterns
+---
+
+Taskcore's frontend is built with SvelteKit, providing a modern development experience with server-side rendering and a clean component architecture.
+
+## Technology Stack
+
+### Core Framework
+
+- **SvelteKit** — Full-stack framework with file-based routing
+- **Svelte 5** — Reactive UI framework with runes
+- **TypeScript** — Type-safe JavaScript
+- **Vite** — Fast build tool and dev server
+
+### Styling
+
+- **TailwindCSS v4** — Utility-first CSS framework
+- **tw-animate-css** — Animation utilities
+- **tailwind-merge** — Merge Tailwind classes intelligently
+- **tailwind-variants** — Type-safe variant API
+
+### UI Components
+
+- **bits-ui** — Headless, accessible component primitives
+- **Lucide Svelte** — Icon library
+- **@internationalized/date** — Date handling utilities
+
+<Note>
+  bits-ui provides unstyled, accessible components (like Radix UI for React). This gives full design control while ensuring keyboard navigation and ARIA attributes work correctly.
+</Note>
+
+## Project Structure
+
+```
+front/
+├── src/
+│   ├── lib/
+│   │   ├── api.ts                    # Type-safe API client
+│   │   ├── components/
+│   │   │   ├── app-sidebar.svelte    # Main sidebar
+│   │   │   ├── nav-main.svelte       # Main navigation
+│   │   │   ├── nav-projects.svelte   # Project list
+│   │   │   ├── team-switcher.svelte  # Workspace switcher
+│   │   │   └── ui/                   # Reusable UI components
+│   │   │       ├── avatar/
+│   │   │       ├── button/
+│   │   │       ├── card/
+│   │   │       ├── dropdown-menu/
+│   │   │       └── ...
+│   │   └── utils/                    # Utility functions
+│   ├── routes/                       # SvelteKit routes
+│   │   ├── +layout.svelte           # Root layout
+│   │   ├── +page.svelte             # Home page
+│   │   ├── login/
+│   │   └── [workspace]/             # Dynamic workspace routes
+│   ├── app.html                     # HTML template
+│   └── app.d.ts                     # TypeScript declarations
+├── static/                           # Static assets
+├── package.json
+├── tsconfig.json
+├── tailwind.config.js
+└── vite.config.ts
+```
+
+## API Client
+
+The frontend communicates with the backend through a type-safe API client:
+
+### Client Implementation
+
+```typescript
+// src/lib/api.ts
+const BASE = '/api';
+
+interface ApiResponse<T> {
+  status: number;
+  data?: T;
+  error?: string;
+  message?: string;
+}
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+  if (res.status === 204) return undefined as T;
+
+  const json: ApiResponse<T> = await res.json().catch(() => 
+    ({ status: res.status, error: res.statusText })
+  );
+
+  if (!res.ok) {
+    throw new Error(json.error ?? res.statusText);
+  }
+
+  return json.data as T;
+}
+
+const get = <T>(path: string) => request<T>('GET', path);
+const post = <T>(path: string, body: unknown) => request<T>('POST', path, body);
+const put = <T>(path: string, body: unknown) => request<T>('PUT', path, body);
+const del = (path: string) => request<void>('DELETE', path);
+```
+
+### Domain-Specific Exports
+
+The API client is organized by domain:
+
+```typescript
+// Issues API
+export const issues = {
+  create: (projectID: string, body: CreateIssueBody) =>
+    post<Issue>(`/projects/${projectID}/issues`, body),
+    
+  list: (projectID: string, params?: { status_id?: string; assignee_id?: string }) => {
+    const qs = new URLSearchParams(
+      Object.entries(params ?? {}).filter(([, v]) => v) as [string, string][]
+    ).toString();
+    return get<Issue[]>(`/projects/${projectID}/issues${qs ? `?${qs}` : ''}`);
+  },
+  
+  get: (projectID: string, issueID: string) =>
+    get<Issue>(`/projects/${projectID}/issues/${issueID}`),
+    
+  update: (projectID: string, issueID: string, body: UpdateIssueBody) =>
+    put<Issue>(`/projects/${projectID}/issues/${issueID}`, body),
+    
+  archive: (projectID: string, issueID: string) =>
+    del(`/projects/${projectID}/issues/${issueID}`),
+    
+  move: (projectID: string, issueID: string, body: { target_status_id: string; target_position: number }) =>
+    post<void>(`/projects/${projectID}/issues/${issueID}/move`, body)
+};
+
+// Projects API
+export const projects = {
+  create: (workspaceID: string, body: { name: string; key: string; description?: string }) =>
+    post<Project>(`/workspaces/${workspaceID}/projects`, body),
+    
+  list: (workspaceID: string) => 
+    get<Project[]>(`/workspaces/${workspaceID}/projects`),
+    
+  get: (projectID: string) => 
+    get<Project>(`/projects/${projectID}`),
+    
+  archive: (projectID: string) => 
+    del(`/projects/${projectID}`),
+};
+```
+
+### TypeScript Types
+
+All API types are defined alongside the client:
+
+```typescript
+export interface Issue {
+  id: string;
+  project_id: string;
+  number: number;
+  issue_type_id: string;
+  status_id: string;
+  parent_issue_id?: string;
+  title: string;
+  description: string;
+  priority: string;
+  assignee_id?: string;
+  reporter_id: string;
+  due_date?: string;
+  status_position: number;
+  created_at: string;
+  updated_at: string;
+  archived_at?: string;
+}
+
+export interface CreateIssueBody {
+  issue_type_id: string;
+  status_id: string;
+  title: string;
+  reporter_id: string;
+  description?: string;
+  priority?: string;
+  assignee_id?: string;
+  parent_issue_id?: string;
+  due_date?: string;
+}
+
+export interface UpdateIssueBody {
+  title: string;
+  description?: string;
+  priority: string;
+  assignee_id?: string;
+}
+```
+
+<Accordion title="Why not generate types from OpenAPI?">
+  For the MVP, manually maintained types are simpler and keep the frontend/backend in sync through code review. As the API grows, consider tools like `openapi-typescript` to generate types from OpenAPI specs.
+</Accordion>
+
+## Component Patterns
+
+### Svelte 5 Runes
+
+Taskcore uses Svelte 5's new reactive primitives:
+
+```svelte
+<script lang="ts">
+import { issues } from '$lib/api';
+
+let { projectID } = $props(); // Props with $props rune
+let issueList = $state<Issue[]>([]); // Reactive state with $state rune
+let loading = $state(false);
+
+// Derived value with $derived rune
+let todoIssues = $derived(issueList.filter(i => i.status_category === 'todo'));
+
+// Effect with $effect rune
+$effect(() => {
+  async function loadIssues() {
+    loading = true;
+    try {
+      issueList = await issues.list(projectID);
+    } catch (err) {
+      console.error('Failed to load issues:', err);
+    } finally {
+      loading = false;
+    }
+  }
+  loadIssues();
+});
+</script>
+
+{#if loading}
+  <p>Loading...</p>
+{:else}
+  {#each todoIssues as issue}
+    <IssueCard {issue} />
+  {/each}
+{/if}
+```
+
+### Component Composition
+
+Build complex UIs from small, reusable components:
+
+```svelte
+<!-- ProjectBoard.svelte -->
+<script lang="ts">
+import BoardColumn from './BoardColumn.svelte';
+import IssueCard from './IssueCard.svelte';
+import { issues, statuses } from '$lib/api';
+
+let { projectID } = $props();
+let statusList = $state([]);
+let issuesByStatus = $state({});
+
+$effect(() => {
+  async function load() {
+    statusList = await statuses.list(projectID);
+    const allIssues = await issues.list(projectID);
+    
+    // Group issues by status
+    issuesByStatus = statusList.reduce((acc, status) => {
+      acc[status.id] = allIssues.filter(i => i.status_id === status.id);
+      return acc;
+    }, {});
+  }
+  load();
+});
+</script>
+
+<div class="flex gap-4 overflow-x-auto">
+  {#each statusList as status}
+    <BoardColumn {status}>
+      {#each issuesByStatus[status.id] ?? [] as issue}
+        <IssueCard {issue} />
+      {/each}
+    </BoardColumn>
+  {/each}
+</div>
+```
+
+### Shared UI Components
+
+Reusable components live in `src/lib/components/ui/`:
+
+```svelte
+<!-- Button.svelte -->
+<script lang="ts">
+import { tv, type VariantProps } from 'tailwind-variants';
+
+const button = tv({
+  base: 'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50',
+  variants: {
+    variant: {
+      default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+      destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+      outline: 'border border-input bg-background hover:bg-accent',
+      ghost: 'hover:bg-accent hover:text-accent-foreground',
+    },
+    size: {
+      default: 'h-10 px-4 py-2',
+      sm: 'h-9 rounded-md px-3',
+      lg: 'h-11 rounded-md px-8',
+      icon: 'h-10 w-10',
+    },
+  },
+  defaultVariants: {
+    variant: 'default',
+    size: 'default',
+  },
+});
+
+type Props = VariantProps<typeof button> & {
+  onclick?: (e: MouseEvent) => void;
+  disabled?: boolean;
+  type?: 'button' | 'submit' | 'reset';
+};
+
+let { variant, size, onclick, disabled, type = 'button', children } = $props<Props>();
+</script>
+
+<button
+  {type}
+  {disabled}
+  {onclick}
+  class={button({ variant, size })}
+>
+  {@render children()}
+</button>
+```
+
+## Routing
+
+SvelteKit uses file-based routing:
+
+```
+routes/
+├── +layout.svelte               # Root layout (wraps all pages)
+├── +page.svelte                 # Home page (/)
+├── login/
+│   └── +page.svelte            # Login page (/login)
+├── [workspace]/                 # Dynamic workspace slug
+│   ├── +layout.svelte          # Workspace layout
+│   ├── +page.svelte            # Workspace home
+│   └── [project]/              # Dynamic project key
+│       ├── +page.svelte        # Project overview
+│       ├── board/
+│       │   └── +page.svelte    # Board view
+│       └── issues/
+│           ├── +page.svelte    # Issue list
+│           └── [issueID]/
+│               └── +page.svelte # Issue detail
+```
+
+### Layout Hierarchy
+
+Layouts provide shared UI for nested routes:
+
+```svelte
+<!-- routes/[workspace]/+layout.svelte -->
+<script lang="ts">
+import AppSidebar from '$lib/components/app-sidebar.svelte';
+import { page } from '$app/stores';
+
+let workspaceSlug = $derived($page.params.workspace);
+</script>
+
+<div class="flex h-screen">
+  <AppSidebar {workspaceSlug} />
+  <main class="flex-1 overflow-auto">
+    <slot /> <!-- Child routes render here -->
+  </main>
+</div>
+```
+
+### Navigation
+
+Use SvelteKit's `<a>` tags for client-side navigation:
+
+```svelte
+<script lang="ts">
+import { goto } from '$app/navigation';
+
+function handleClick() {
+  goto(`/workspace/${workspaceSlug}/projects`);
+}
+</script>
+
+<!-- Declarative navigation -->
+<a href="/workspace/{workspaceSlug}/projects">
+  View Projects
+</a>
+
+<!-- Programmatic navigation -->
+<button onclick={handleClick}>
+  Go to Projects
+</button>
+```
+
+## Styling with Tailwind
+
+### Utility Classes
+
+Tailwind provides low-level utility classes:
+
+```svelte
+<div class="flex items-center gap-4 rounded-lg border p-4 shadow-sm">
+  <Avatar size="lg" />
+  <div class="flex-1">
+    <h3 class="font-semibold text-lg">Issue Title</h3>
+    <p class="text-sm text-muted-foreground">Created 2 days ago</p>
+  </div>
+  <Button variant="outline" size="sm">Edit</Button>
+</div>
+```
+
+### Component Variants
+
+tailwind-variants creates type-safe variant APIs:
+
+```typescript
+import { tv } from 'tailwind-variants';
+
+const badge = tv({
+  base: 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+  variants: {
+    variant: {
+      default: 'bg-primary text-primary-foreground',
+      secondary: 'bg-secondary text-secondary-foreground',
+      destructive: 'bg-destructive text-destructive-foreground',
+      outline: 'border border-input',
+    },
+  },
+});
+
+// Usage
+<span class={badge({ variant: 'destructive' })}>High Priority</span>
+```
+
+## State Management
+
+### Component State
+
+Use `$state` for local component state:
+
+```svelte
+<script lang="ts">
+let count = $state(0);
+let items = $state<string[]>([]);
+
+function increment() {
+  count += 1;
+}
+</script>
+
+<button onclick={increment}>
+  Clicked {count} times
+</button>
+```
+
+### Shared State
+
+For state shared across components, use Svelte stores:
+
+```typescript
+// src/lib/stores/workspace.ts
+import { writable } from 'svelte/store';
+import type { Workspace } from '$lib/api';
+
+export const currentWorkspace = writable<Workspace | null>(null);
+
+// Usage in components
+import { currentWorkspace } from '$lib/stores/workspace';
+
+$effect(() => {
+  currentWorkspace.set(workspace);
+});
+```
+
+### URL State
+
+Use URL parameters for shareable state:
+
+```svelte
+<script lang="ts">
+import { page } from '$app/stores';
+import { goto } from '$app/navigation';
+
+let statusFilter = $derived($page.url.searchParams.get('status'));
+
+function setFilter(status: string) {
+  const url = new URL($page.url);
+  url.searchParams.set('status', status);
+  goto(url);
+}
+</script>
+```
+
+## Build and Deployment
+
+The frontend is built as static files and embedded in the Go binary:
+
+### Build Process
+
+```json
+// package.json
+{
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview"
+  }
+}
+```
+
+```bash
+# Development server
+cd front && npm run dev
+
+# Production build
+cd front && npm run build
+```
+
+### Static Adapter
+
+SvelteKit generates a static site:
+
+```typescript
+// svelte.config.js
+import adapter from '@sveltejs/adapter-static';
+
+export default {
+  kit: {
+    adapter: adapter({
+      pages: 'build',
+      assets: 'build',
+      fallback: 'index.html',
+    }),
+  },
+};
+```
+
+### Serving from Go
+
+The Go server serves the built frontend:
+
+```go
+// cmd/server/ui.go
+import (
+    "embed"
+    "io/fs"
+    "net/http"
+)
+
+//go:embed all:front/build
+var frontendFS embed.FS
+
+func registerUI(mux *http.ServeMux) {
+    build, _ := fs.Sub(frontendFS, "front/build")
+    mux.Handle("/", http.FileServer(http.FS(build)))
+}
+```
+
+<Note>
+  The `embed` directive packages the frontend build into the Go binary, creating a truly single-file deployment artifact.
+</Note>
+
+## Development Workflow
+
+### Local Development
+
+Run frontend and backend separately:
+
+```bash
+# Terminal 1: Backend
+cd workspace/source
+go run cmd/server/main.go
+
+# Terminal 2: Frontend
+cd workspace/source/front
+npm run dev
+```
+
+Configure Vite to proxy API requests:
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  server: {
+    proxy: {
+      '/api': 'http://localhost:8080',
+    },
+  },
+});
+```
+
+### Type Safety
+
+Run type checking:
+
+```bash
+# Check types
+npm run check
+
+# Watch mode
+npm run check:watch
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Explore the REST API
+  </Card>
+  <Card title="Contributing" icon="code-branch" href="/contributing">
+    Contribute to Taskcore
+  </Card>
+</CardGroup>
