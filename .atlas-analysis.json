@@ -1,0 +1,113 @@
+{
+  "projectType": "saas",
+  "projectName": "Taskcore",
+  "projectDescription": "Open source project management platform for teams with Kanban boards, issue tracking, and configurable workflows.",
+  "theme": "palm",
+  "primaryColor": "#3b82f6",
+  "lightColor": null,
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation",
+              "docker-deployment"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/workspaces",
+              "concepts/projects",
+              "concepts/boards",
+              "concepts/issues",
+              "concepts/statuses",
+              "concepts/issue-types"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/creating-projects",
+              "guides/configuring-boards",
+              "guides/managing-issues",
+              "guides/team-collaboration",
+              "guides/workflows"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/data-model",
+              "architecture/backend",
+              "architecture/frontend"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "api/overview",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/users",
+              "api/workspaces",
+              "api/projects",
+              "api/boards",
+              "api/statuses",
+              "api/issue-types",
+              "api/issues"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Kanban and Scrum board support",
+    "Configurable workflows per project",
+    "Issue hierarchy with parent/child relationships",
+    "Drag-and-drop issue management",
+    "Multi-workspace support",
+    "Self-hostable deployment",
+    "REST API for integrations",
+    "PostgreSQL database with explicit SQL"
+  ],
+  "publicApiSurface": [
+    "POST /api/users - Create user",
+    "POST /api/workspaces - Create workspace",
+    "GET /api/workspaces - List workspaces",
+    "POST /api/workspaces/{id}/members - Add workspace member",
+    "POST /api/projects - Create project",
+    "GET /api/projects - List projects",
+    "POST /api/projects/{id}/members - Add project member",
+    "POST /api/projects/{projectId}/statuses - Create status",
+    "GET /api/projects/{projectId}/statuses - List statuses",
+    "POST /api/projects/{projectId}/issue-types - Create issue type",
+    "GET /api/projects/{projectId}/issue-types - List issue types",
+    "POST /api/projects/{projectId}/boards - Create board",
+    "GET /api/projects/{projectId}/boards - List boards",
+    "POST /api/boards/{boardId}/columns - Add board column",
+    "POST /api/boards/{boardId}/columns/{columnId}/statuses - Assign status to column",
+    "POST /api/projects/{projectId}/issues - Create issue",
+    "GET /api/projects/{projectId}/issues - List issues",
+    "GET /api/projects/{projectId}/issues/{issueId} - Get issue",
+    "PUT /api/projects/{projectId}/issues/{issueId} - Update issue",
+    "POST /api/projects/{projectId}/issues/{issueId}/move - Move issue"
+  ]
+}
